@@ -1,0 +1,24 @@
+<main class="app-shell">
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Personal tracker</p>
+      <h1>{{ title() }}</h1>
+    </div>
+
+    <span class="status-badge">Local</span>
+  </header>
+
+  <section class="workspace" aria-label="Application status">
+    <article class="workspace-panel">
+      <span class="panel-label">API</span>
+      <strong>{{ apiBaseUrl }}</strong>
+    </article>
+
+    <article class="workspace-panel">
+      <span class="panel-label">Workspace</span>
+      <strong>Ready</strong>
+    </article>
+  </section>
+
+  <router-outlet />
+</main>
