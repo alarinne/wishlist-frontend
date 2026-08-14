@@ -1,0 +1,62 @@
+<form class="wish-create-form" #wishForm="ngForm" (ngSubmit)="submitForm()">
+  <label for="wishName">Wish name</label>
+  <input
+    id="wishName"
+    name="wishName"
+    type="text"
+    [(ngModel)]="wishName"
+    required
+  />
+
+  <label for="wishPrice">Price</label>
+  <input
+    id="wishPrice"
+    name="wishPrice"
+    type="number"
+    [(ngModel)]="wishPrice"
+    min="0"
+    required
+  />
+
+  <label for="url">URL</label>
+  <input
+    id="url"
+    name="url"
+    type="url"
+    [(ngModel)]="url"
+  />
+
+  <label for="categoryId">Category</label>
+  <select
+    id="categoryId"
+    name="categoryId"
+    [(ngModel)]="categoryId"
+    required
+  >
+    <option [ngValue]="null" disabled>Select category</option>
+
+    @for (category of categories(); track category.id) {
+      <option [ngValue]="category.id">
+        {{ category.label }}
+      </option>
+    }
+  </select>
+
+  <label for="priority">Priority</label>
+  <select
+    id="priority"
+    name="priority"
+    [(ngModel)]="priority"
+    required
+  >
+    @for (priority of priorities; track priority) {
+      <option [ngValue]="priority">
+        {{ priority }}
+      </option>
+    }
+  </select>
+
+  <button type="submit" [disabled]="wishForm.invalid">
+    Create wish
+  </button>
+</form>

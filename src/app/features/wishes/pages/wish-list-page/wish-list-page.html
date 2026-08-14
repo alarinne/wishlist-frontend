@@ -7,6 +7,11 @@
     </button>
   </header>
 
+  <app-wish-create-form
+    [categories]="categories()"
+    (createWish)="createWish($event)"
+  />
+
   @if (isLoading()) {
     <p>Loading wishes...</p>
   } @else if (errorMessage()) {
