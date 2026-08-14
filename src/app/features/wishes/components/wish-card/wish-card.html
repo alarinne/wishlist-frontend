@@ -1,0 +1,14 @@
+<article class="wish-card">
+  <h3>{{ wish().wishName }}</h3>
+
+  <p>Category: {{ wish().categoryName }}</p>
+  <p>Price: {{ wish().wishPrice }}</p>
+  <p>Priority: {{ wish().priority }}</p>
+  <p>Status: {{ wish().status }}</p>
+
+  @if (wish().url) {
+    <a [href]="wish().url" target="_blank" rel="noopener noreferrer">
+      Open link
+    </a>
+  }
+</article>

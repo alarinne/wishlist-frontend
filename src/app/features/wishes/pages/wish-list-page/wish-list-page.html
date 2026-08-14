@@ -1,0 +1,28 @@
+<section class="wish-list-page">
+  <header>
+    <h2>Wishes</h2>
+
+    <button type="button" (click)="loadWishes()">
+      Refresh
+    </button>
+  </header>
+
+  <app-wish-create-form
+    [categories]="categories()"
+    (createWish)="createWish($event)"
+  />
+
+  @if (isLoading()) {
+    <p>Loading wishes...</p>
+  } @else if (errorMessage()) {
+    <p>{{ errorMessage() }}</p>
+  } @else if (wishes().length === 0) {
+    <p>No wishes yet.</p>
+  } @else {
+    <div>
+      @for (wish of wishes(); track wish.id) {
+        <app-wish-card [wish]="wish" />
+      }
+    </div>
+  }
+</section>
