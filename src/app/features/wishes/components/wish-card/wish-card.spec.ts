@@ -1,10 +1,22 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { WishResponse } from '../../../../core/models/wish.model';
 import { WishCard } from './wish-card';
 
 describe('WishCard', () => {
   let component: WishCard;
   let fixture: ComponentFixture<WishCard>;
+
+  const wish: WishResponse = {
+    id: 1,
+    wishName: 'Kindle',
+    wishPrice: 120,
+    url: 'https://example.com/kindle',
+    status: 'ACTIVE',
+    categoryId: 1,
+    categoryName: 'Books',
+    priority: 'HIGH',
+  };
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -12,11 +24,31 @@ describe('WishCard', () => {
     }).compileComponents();
 
     fixture = TestBed.createComponent(WishCard);
+    fixture.componentRef.setInput('wish', wish);
+    fixture.detectChanges();
+
     component = fixture.componentInstance;
     await fixture.whenStable();
   });
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('should render wish details', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Kindle');
+    expect(compiled.textContent).toContain('Books');
+    expect(compiled.textContent).toContain('120');
+    expect(compiled.textContent).toContain('HIGH');
+    expect(compiled.textContent).toContain('ACTIVE');
+  });
+
+  it('should render wish link', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    const link = compiled.querySelector('a');
+
+    expect(link?.getAttribute('href')).toBe('https://example.com/kindle');
   });
 });
