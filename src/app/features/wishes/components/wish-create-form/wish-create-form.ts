@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 
 import { CategoryResponse } from '../../../../core/models/category.model';
 import { Priority, WishRequest } from '../../../../core/models/wish.model';
+import { WishCreateFieldErrors } from '../../models/wish-create-field-errors.model';
 
 @Component({
   selector: 'app-wish-create-form',
@@ -13,6 +14,7 @@ import { Priority, WishRequest } from '../../../../core/models/wish.model';
 export class WishCreateForm {
   readonly categories = input.required<CategoryResponse[]>();
   readonly createWish = output<WishRequest>();
+  readonly fieldErrors = input<WishCreateFieldErrors>({});
 
   protected readonly priorities: Priority[] = ['LOW', 'MEDIUM', 'HIGH'];
 

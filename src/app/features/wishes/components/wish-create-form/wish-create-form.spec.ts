@@ -61,4 +61,17 @@ describe('WishCreateForm', () => {
       priority: 'MEDIUM',
     });
   });
+
+  it('should render field errors', () => {
+    fixture.componentRef.setInput('fieldErrors', {
+      wishName: 'Wish name is required',
+      wishPrice: 'Wish price must be zero or positive',
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Wish name is required');
+    expect(compiled.textContent).toContain('Wish price must be zero or positive');
+  });
 });

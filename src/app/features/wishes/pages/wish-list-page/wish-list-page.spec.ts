@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HttpErrorResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
 
@@ -110,5 +111,70 @@ describe('WishListPage', () => {
 
     expect(wishApiService.createWish).toHaveBeenCalledWith(request);
     expect(wishApiService.getWishes).toHaveBeenCalledTimes(2);
+  });
+
+  it('should show backend validation errors when create wish returns bad request', () => {
+    const request: WishRequest = {
+      wishName: '',
+      wishPrice: 120,
+      url: null,
+      categoryId: 1,
+      priority: 'HIGH',
+    };
+
+    wishApiService.getWishes.mockReturnValue(of([]));
+    wishApiService.createWish.mockReturnValue(throwError(() => new HttpErrorResponse({
+      status: 400,
+      error: {
+        message: 'Validation failed',
+        fieldErrors: [
+          { field: 'wishName', message: 'Wish name is required' },
+        ],
+      },
+    })));
+    categoryApiService.getCategories.mockReturnValue(
+      of([{ id: 1, name: 'Books', code: 'books', label: 'Books' }]),
+    );
+
+    fixture.detectChanges();
+
+    const form = fixture.debugElement.query(By.directive(WishCreateForm))
+      .componentInstance as WishCreateForm;
+
+    form.createWish.emit(request);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Wish name is required');
+    expect(compiled.textContent).not.toContain('Could not create wish');
+  });
+
+  it('should show generic create error when create wish fails without validation errors', () => {
+    const request: WishRequest = {
+      wishName: 'Kindle',
+      wishPrice: 120,
+      url: null,
+      categoryId: 1,
+      priority: 'HIGH',
+    };
+
+    wishApiService.getWishes.mockReturnValue(of([]));
+    wishApiService.createWish.mockReturnValue(throwError(() => new HttpErrorResponse({
+      status: 500,
+    })));
+    categoryApiService.getCategories.mockReturnValue(of([]));
+
+    fixture.detectChanges();
+
+    const form = fixture.debugElement.query(By.directive(WishCreateForm))
+      .componentInstance as WishCreateForm;
+
+    form.createWish.emit(request);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Could not create wish');
   });
 });
