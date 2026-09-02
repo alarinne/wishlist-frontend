@@ -79,6 +79,19 @@ export class WishListPage {
     });
   }
 
+  protected deleteWish(id: number): void {
+    this.errorMessage.set(null);
+
+    this.wishApiService.deleteWish(id).subscribe({
+      next: () => {
+        this.wishes.update((wishes) => wishes.filter((wish) => wish.id !== id));
+      },
+      error: () => {
+        this.errorMessage.set('Could not delete wish');
+      },
+    });
+  }
+
   private getValidationFieldErrors(error: unknown): WishCreateFieldErrors | null {
     if (!(error instanceof HttpErrorResponse) || error.status !== 400) {
       return null;

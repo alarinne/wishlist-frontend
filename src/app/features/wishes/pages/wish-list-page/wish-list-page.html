@@ -22,7 +22,10 @@
   } @else {
     <div>
       @for (wish of wishes(); track wish.id) {
-        <app-wish-card [wish]="wish" />
+        <app-wish-card
+          [wish]="wish"
+          (deleteWish)="deleteWish($event)"
+        />
       }
     </div>
   }
