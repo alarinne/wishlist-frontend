@@ -6,6 +6,7 @@ import { of, throwError } from 'rxjs';
 import { CategoryApiService } from '../../../../core/api/category-api.service';
 import { WishApiService } from '../../../../core/api/wish-api.service';
 import { WishRequest, WishResponse } from '../../../../core/models/wish.model';
+import { WishCard } from '../../components/wish-card/wish-card';
 import { WishCreateForm } from '../../components/wish-create-form/wish-create-form';
 import { WishListPage } from './wish-list-page';
 
@@ -15,6 +16,7 @@ describe('WishListPage', () => {
   let wishApiService: {
     getWishes: ReturnType<typeof vi.fn>;
     createWish: ReturnType<typeof vi.fn>;
+    deleteWish: ReturnType<typeof vi.fn>;
   };
   let categoryApiService: {
     getCategories: ReturnType<typeof vi.fn>;
@@ -35,6 +37,7 @@ describe('WishListPage', () => {
     wishApiService = {
       getWishes: vi.fn(),
       createWish: vi.fn(),
+      deleteWish: vi.fn(),
     };
 
     categoryApiService = {
@@ -176,5 +179,43 @@ describe('WishListPage', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.textContent).toContain('Could not create wish');
+  });
+
+  it('should delete wish and remove it from the list', () => {
+    wishApiService.getWishes.mockReturnValue(of([wish]));
+    wishApiService.deleteWish.mockReturnValue(of(undefined));
+    categoryApiService.getCategories.mockReturnValue(of([]));
+
+    fixture.detectChanges();
+
+    const card = fixture.debugElement.query(By.directive(WishCard))
+      .componentInstance as WishCard;
+
+    card.deleteWish.emit(1);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(wishApiService.deleteWish).toHaveBeenCalledWith(1);
+    expect(compiled.textContent).not.toContain('Kindle');
+  });
+
+  it('should show generic delete error when delete wish fails', () => {
+    wishApiService.getWishes.mockReturnValue(of([wish]));
+    wishApiService.deleteWish.mockReturnValue(throwError(() => new Error('Failed')));
+    categoryApiService.getCategories.mockReturnValue(of([]));
+
+    fixture.detectChanges();
+
+    const card = fixture.debugElement.query(By.directive(WishCard))
+      .componentInstance as WishCard;
+
+    card.deleteWish.emit(1);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(wishApiService.deleteWish).toHaveBeenCalledWith(1);
+    expect(compiled.textContent).toContain('Could not delete wish');
   });
 });
