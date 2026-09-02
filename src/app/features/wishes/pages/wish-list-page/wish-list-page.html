@@ -9,6 +9,7 @@
 
   <app-wish-create-form
     [categories]="categories()"
+    [fieldErrors]="createFieldErrors()"
     (createWish)="createWish($event)"
   />
 
