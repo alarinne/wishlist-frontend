@@ -64,4 +64,17 @@ describe('WishCard', () => {
 
     expect(deletedWishId).toBe(1);
   });
+
+  it('should emit wish when edit button is clicked', () => {
+    let editedWish: WishResponse | undefined;
+    component.editWish.subscribe((selectedWish) => {
+      editedWish = selectedWish;
+    });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const buttons = compiled.querySelectorAll('button');
+    buttons[1].click();
+
+    expect(editedWish).toEqual(wish);
+  });
 });

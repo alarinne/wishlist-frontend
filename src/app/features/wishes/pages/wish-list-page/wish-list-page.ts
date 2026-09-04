@@ -25,6 +25,7 @@ export class WishListPage {
   protected readonly isLoading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly createFieldErrors = signal<WishCreateFieldErrors>({});
+  protected readonly editingWish = signal<WishResponse | null>(null);
 
   ngOnInit(): void {
     this.loadWishes();
@@ -58,7 +59,18 @@ export class WishListPage {
     });
   }
 
-  protected createWish(request: WishRequest): void {
+  protected saveWish(request: WishRequest): void {
+    const editingWish = this.editingWish();
+
+    if (editingWish) {
+      this.updateWish(editingWish.id, request);
+      return;
+    }
+
+    this.createWish(request);
+  }
+
+  private createWish(request: WishRequest): void {
     this.errorMessage.set(null);
     this.createFieldErrors.set({});
 
@@ -79,6 +91,30 @@ export class WishListPage {
     });
   }
 
+  private updateWish(id: number, request: WishRequest): void {
+    this.errorMessage.set(null);
+    this.createFieldErrors.set({});
+
+    this.wishApiService.updateWish(id, request).subscribe({
+      next: (updatedWish) => {
+        this.wishes.update((wishes) =>
+          wishes.map((wish) => wish.id === id ? updatedWish : wish),
+        );
+        this.editingWish.set(null);
+      },
+      error: (error: unknown) => {
+        const fieldErrors = this.getValidationFieldErrors(error);
+
+        if (fieldErrors) {
+          this.createFieldErrors.set(fieldErrors);
+          return;
+        }
+
+        this.errorMessage.set('Could not update wish');
+      },
+    });
+  }
+
   protected deleteWish(id: number): void {
     this.errorMessage.set(null);
 
@@ -90,6 +126,12 @@ export class WishListPage {
         this.errorMessage.set('Could not delete wish');
       },
     });
+  }
+
+  protected startEdit(wish: WishResponse): void {
+    this.errorMessage.set(null);
+    this.createFieldErrors.set({});
+    this.editingWish.set(wish);
   }
 
   private getValidationFieldErrors(error: unknown): WishCreateFieldErrors | null {

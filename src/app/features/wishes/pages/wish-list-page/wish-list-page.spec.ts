@@ -16,6 +16,7 @@ describe('WishListPage', () => {
   let wishApiService: {
     getWishes: ReturnType<typeof vi.fn>;
     createWish: ReturnType<typeof vi.fn>;
+    updateWish: ReturnType<typeof vi.fn>;
     deleteWish: ReturnType<typeof vi.fn>;
   };
   let categoryApiService: {
@@ -37,6 +38,7 @@ describe('WishListPage', () => {
     wishApiService = {
       getWishes: vi.fn(),
       createWish: vi.fn(),
+      updateWish: vi.fn(),
       deleteWish: vi.fn(),
     };
 
@@ -110,7 +112,7 @@ describe('WishListPage', () => {
     const form = fixture.debugElement.query(By.directive(WishCreateForm))
       .componentInstance as WishCreateForm;
 
-    form.createWish.emit(request);
+    form.saveWish.emit(request);
 
     expect(wishApiService.createWish).toHaveBeenCalledWith(request);
     expect(wishApiService.getWishes).toHaveBeenCalledTimes(2);
@@ -144,7 +146,7 @@ describe('WishListPage', () => {
     const form = fixture.debugElement.query(By.directive(WishCreateForm))
       .componentInstance as WishCreateForm;
 
-    form.createWish.emit(request);
+    form.saveWish.emit(request);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -173,7 +175,7 @@ describe('WishListPage', () => {
     const form = fixture.debugElement.query(By.directive(WishCreateForm))
       .componentInstance as WishCreateForm;
 
-    form.createWish.emit(request);
+    form.saveWish.emit(request);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -217,5 +219,100 @@ describe('WishListPage', () => {
 
     expect(wishApiService.deleteWish).toHaveBeenCalledWith(1);
     expect(compiled.textContent).toContain('Could not delete wish');
+  });
+
+  it('should start editing when wish card emits edit wish', async () => {
+    wishApiService.getWishes.mockReturnValue(of([wish]));
+    categoryApiService.getCategories.mockReturnValue(
+      of([{ id: 1, name: 'Books', code: 'books', label: 'Books' }]),
+    );
+
+    fixture.detectChanges();
+
+    const card = fixture.debugElement.query(By.directive(WishCard))
+      .componentInstance as WishCard;
+
+    card.editWish.emit(wish);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const button = compiled.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+    expect(compiled.querySelector<HTMLInputElement>('#wishName')?.value).toBe('Kindle');
+    expect(button.textContent).toContain('Update wish');
+  });
+
+  it('should update wish and replace it in the list', () => {
+    const request: WishRequest = {
+      wishName: 'Kobo',
+      wishPrice: 150,
+      url: null,
+      categoryId: 1,
+      priority: 'MEDIUM',
+    };
+    const updatedWish: WishResponse = {
+      ...wish,
+      wishName: 'Kobo',
+      wishPrice: 150,
+      priority: 'MEDIUM',
+    };
+
+    wishApiService.getWishes.mockReturnValue(of([wish]));
+    wishApiService.updateWish.mockReturnValue(of(updatedWish));
+    categoryApiService.getCategories.mockReturnValue(
+      of([{ id: 1, name: 'Books', code: 'books', label: 'Books' }]),
+    );
+
+    fixture.detectChanges();
+
+    const card = fixture.debugElement.query(By.directive(WishCard))
+      .componentInstance as WishCard;
+    card.editWish.emit(wish);
+    fixture.detectChanges();
+
+    const form = fixture.debugElement.query(By.directive(WishCreateForm))
+      .componentInstance as WishCreateForm;
+    form.saveWish.emit(request);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(wishApiService.updateWish).toHaveBeenCalledWith(1, request);
+    expect(compiled.textContent).toContain('Kobo');
+    expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent)
+      .toContain('Create wish');
+  });
+
+  it('should show generic update error when update wish fails', () => {
+    const request: WishRequest = {
+      wishName: 'Kobo',
+      wishPrice: 150,
+      url: null,
+      categoryId: 1,
+      priority: 'MEDIUM',
+    };
+
+    wishApiService.getWishes.mockReturnValue(of([wish]));
+    wishApiService.updateWish.mockReturnValue(throwError(() => new Error('Failed')));
+    categoryApiService.getCategories.mockReturnValue(of([]));
+
+    fixture.detectChanges();
+
+    const card = fixture.debugElement.query(By.directive(WishCard))
+      .componentInstance as WishCard;
+    card.editWish.emit(wish);
+    fixture.detectChanges();
+
+    const form = fixture.debugElement.query(By.directive(WishCreateForm))
+      .componentInstance as WishCreateForm;
+    form.saveWish.emit(request);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(wishApiService.updateWish).toHaveBeenCalledWith(1, request);
+    expect(compiled.textContent).toContain('Could not update wish');
   });
 });

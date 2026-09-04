@@ -29,7 +29,7 @@ describe('WishCreateForm', () => {
   it('should emit wish request when form is valid', async () => {
     let emittedRequest: WishRequest | undefined;
 
-    component.createWish.subscribe((request) => {
+    component.saveWish.subscribe((request) => {
       emittedRequest = request;
     });
 
@@ -73,5 +73,36 @@ describe('WishCreateForm', () => {
 
     expect(compiled.textContent).toContain('Wish name is required');
     expect(compiled.textContent).toContain('Wish price must be zero or positive');
+  });
+
+  it('should prefill fields when editing wish is provided', async () => {
+    fixture.componentRef.setInput('editingWish', {
+      id: 1,
+      wishName: 'Kindle',
+      wishPrice: 120,
+      url: 'https://example.com/kindle',
+      status: 'ACTIVE',
+      categoryId: 1,
+      categoryName: 'Books',
+      priority: 'HIGH',
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const nameInput = compiled.querySelector<HTMLInputElement>('#wishName')!;
+    const priceInput = compiled.querySelector<HTMLInputElement>('#wishPrice')!;
+    const urlInput = compiled.querySelector<HTMLInputElement>('#url')!;
+    const categorySelect = compiled.querySelector<HTMLSelectElement>('#categoryId')!;
+    const prioritySelect = compiled.querySelector<HTMLSelectElement>('#priority')!;
+    const button = compiled.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+    expect(nameInput.value).toBe('Kindle');
+    expect(priceInput.value).toBe('120');
+    expect(urlInput.value).toBe('https://example.com/kindle');
+    expect(categorySelect.selectedOptions[0].textContent?.trim()).toBe('Books');
+    expect(prioritySelect.selectedOptions[0].textContent?.trim()).toBe('HIGH');
+    expect(button.textContent).toContain('Update wish');
   });
 });
