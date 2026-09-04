@@ -73,6 +73,6 @@
   }
 
   <button type="submit" [disabled]="wishForm.invalid">
-    Create wish
+    {{ editingWish() ? 'Update wish' : 'Create wish' }}
   </button>
 </form>
