@@ -8,6 +8,10 @@
     required
   />
 
+  @if (fieldErrors().wishName) {
+    <p class="field-error">{{ fieldErrors().wishName }}</p>
+  }
+
   <label for="wishPrice">Price</label>
   <input
     id="wishPrice"
@@ -17,6 +21,10 @@
     min="0"
     required
   />
+
+  @if (fieldErrors().wishPrice) {
+    <p class="field-error">{{ fieldErrors().wishPrice }}</p>
+  }
 
   <label for="url">URL</label>
   <input
@@ -42,6 +50,10 @@
     }
   </select>
 
+  @if (fieldErrors().categoryId) {
+    <p class="field-error">{{ fieldErrors().categoryId }}</p>
+  }
+
   <label for="priority">Priority</label>
   <select
     id="priority"
@@ -56,7 +68,11 @@
     }
   </select>
 
+  @if (fieldErrors().priority) {
+    <p class="field-error">{{ fieldErrors().priority }}</p>
+  }
+
   <button type="submit" [disabled]="wishForm.invalid">
-    Create wish
+    {{ editingWish() ? 'Update wish' : 'Create wish' }}
   </button>
 </form>

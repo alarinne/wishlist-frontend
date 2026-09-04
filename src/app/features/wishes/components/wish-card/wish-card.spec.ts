@@ -51,4 +51,30 @@ describe('WishCard', () => {
 
     expect(link?.getAttribute('href')).toBe('https://example.com/kindle');
   });
+
+  it('should emit wish id when delete button is clicked', () => {
+    let deletedWishId: number | undefined;
+    component.deleteWish.subscribe((id) => {
+      deletedWishId = id;
+    });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const button = compiled.querySelector('button')!;
+    button.click();
+
+    expect(deletedWishId).toBe(1);
+  });
+
+  it('should emit wish when edit button is clicked', () => {
+    let editedWish: WishResponse | undefined;
+    component.editWish.subscribe((selectedWish) => {
+      editedWish = selectedWish;
+    });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const buttons = compiled.querySelectorAll('button');
+    buttons[1].click();
+
+    expect(editedWish).toEqual(wish);
+  });
 });

@@ -9,7 +9,9 @@
 
   <app-wish-create-form
     [categories]="categories()"
-    (createWish)="createWish($event)"
+    [editingWish]="editingWish()"
+    [fieldErrors]="createFieldErrors()"
+    (saveWish)="saveWish($event)"
   />
 
   @if (isLoading()) {
@@ -21,7 +23,11 @@
   } @else {
     <div>
       @for (wish of wishes(); track wish.id) {
-        <app-wish-card [wish]="wish" />
+        <app-wish-card
+          [wish]="wish"
+          (editWish)="startEdit($event)"
+          (deleteWish)="deleteWish($event)"
+        />
       }
     </div>
   }
