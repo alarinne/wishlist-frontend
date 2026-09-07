@@ -7,6 +7,16 @@
     </button>
   </header>
 
+  <app-category-create-form
+    [fieldErrors]="categoryFieldErrors()"
+    [resetKey]="categoryFormResetKey()"
+    (createCategory)="createCategory($event)"
+  />
+
+  @if (categoryErrorMessage()) {
+    <p>{{ categoryErrorMessage() }}</p>
+  }
+
   <app-wish-create-form
     [categories]="categories()"
     [editingWish]="editingWish()"
