@@ -5,7 +5,9 @@ import { of, throwError } from 'rxjs';
 
 import { CategoryApiService } from '../../../../core/api/category-api.service';
 import { WishApiService } from '../../../../core/api/wish-api.service';
+import { CategoryRequest } from '../../../../core/models/category.model';
 import { WishRequest, WishResponse } from '../../../../core/models/wish.model';
+import { CategoryCreateForm } from '../../components/category-create-form/category-create-form';
 import { WishCard } from '../../components/wish-card/wish-card';
 import { WishCreateForm } from '../../components/wish-create-form/wish-create-form';
 import { WishListPage } from './wish-list-page';
@@ -21,6 +23,7 @@ describe('WishListPage', () => {
   };
   let categoryApiService: {
     getCategories: ReturnType<typeof vi.fn>;
+    createCategory: ReturnType<typeof vi.fn>;
   };
 
   const wish: WishResponse = {
@@ -44,6 +47,7 @@ describe('WishListPage', () => {
 
     categoryApiService = {
       getCategories: vi.fn(),
+      createCategory: vi.fn(),
     };
 
     await TestBed.configureTestingModule({
@@ -116,6 +120,101 @@ describe('WishListPage', () => {
 
     expect(wishApiService.createWish).toHaveBeenCalledWith(request);
     expect(wishApiService.getWishes).toHaveBeenCalledTimes(2);
+  });
+
+  it('should create category and add it to the wish form categories', () => {
+    const request: CategoryRequest = {
+      name: 'Games',
+      code: 'games',
+      label: 'Games',
+    };
+
+    wishApiService.getWishes.mockReturnValue(of([]));
+    categoryApiService.getCategories.mockReturnValue(of([]));
+    categoryApiService.createCategory.mockReturnValue(of({
+      id: 2,
+      name: 'Games',
+      code: 'games',
+      label: 'Games',
+    }));
+
+    fixture.detectChanges();
+
+    const form = fixture.debugElement.query(By.directive(CategoryCreateForm))
+      .componentInstance as CategoryCreateForm;
+
+    form.createCategory.emit(request);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(categoryApiService.createCategory).toHaveBeenCalledWith(request);
+    expect(compiled.textContent).toContain('Games');
+  });
+
+  it('should show backend validation errors when create category returns bad request', () => {
+    const request: CategoryRequest = {
+      name: '',
+      code: '',
+      label: 'Books',
+    };
+
+    wishApiService.getWishes.mockReturnValue(of([]));
+    categoryApiService.getCategories.mockReturnValue(of([]));
+    categoryApiService.createCategory.mockReturnValue(throwError(() => new HttpErrorResponse({
+      status: 400,
+      error: {
+        message: 'Validation failed',
+        fieldErrors: [
+          { field: 'name', message: 'Category name is required' },
+          { field: 'code', message: 'Category code is required' },
+        ],
+      },
+    })));
+
+    fixture.detectChanges();
+
+    const form = fixture.debugElement.query(By.directive(CategoryCreateForm))
+      .componentInstance as CategoryCreateForm;
+
+    form.createCategory.emit(request);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Category name is required');
+    expect(compiled.textContent).toContain('Category code is required');
+    expect(compiled.textContent).not.toContain('Could not create category');
+  });
+
+  it('should show category error message when create category fails without validation errors', () => {
+    const request: CategoryRequest = {
+      name: 'Books',
+      code: 'books',
+      label: 'Books',
+    };
+
+    wishApiService.getWishes.mockReturnValue(of([]));
+    categoryApiService.getCategories.mockReturnValue(of([]));
+    categoryApiService.createCategory.mockReturnValue(throwError(() => new HttpErrorResponse({
+      status: 409,
+      error: {
+        message: 'Category with code books already exists',
+        fieldErrors: [],
+      },
+    })));
+
+    fixture.detectChanges();
+
+    const form = fixture.debugElement.query(By.directive(CategoryCreateForm))
+      .componentInstance as CategoryCreateForm;
+
+    form.createCategory.emit(request);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Category with code books already exists');
   });
 
   it('should show backend validation errors when create wish returns bad request', () => {
@@ -238,7 +337,8 @@ describe('WishListPage', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    const button = compiled.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    const formElement = fixture.debugElement.query(By.directive(WishCreateForm)).nativeElement as HTMLElement;
+    const button = formElement.querySelector<HTMLButtonElement>('button[type="submit"]')!;
 
     expect(compiled.querySelector<HTMLInputElement>('#wishName')?.value).toBe('Kindle');
     expect(button.textContent).toContain('Update wish');
@@ -278,11 +378,12 @@ describe('WishListPage', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    const formElement = fixture.debugElement.query(By.directive(WishCreateForm)).nativeElement as HTMLElement;
+    const button = formElement.querySelector<HTMLButtonElement>('button[type="submit"]')!;
 
     expect(wishApiService.updateWish).toHaveBeenCalledWith(1, request);
     expect(compiled.textContent).toContain('Kobo');
-    expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent)
-      .toContain('Create wish');
+    expect(button.textContent).toContain('Create wish');
   });
 
   it('should show generic update error when update wish fails', () => {
