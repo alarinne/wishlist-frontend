@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 
 import { CategoryApiService } from '../../../../core/api/category-api.service';
 import { WishApiService } from '../../../../core/api/wish-api.service';
@@ -98,6 +98,32 @@ describe('WishListPage', () => {
     expect(compiled.textContent).toContain('Could not load wishes');
   });
 
+  it('should disable refresh while wishes are loading', () => {
+    const wishes$ = new Subject<WishResponse[]>();
+
+    wishApiService.getWishes.mockReturnValue(wishes$);
+    categoryApiService.getCategories.mockReturnValue(of([]));
+
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const refreshButton = compiled.querySelector<HTMLButtonElement>('header button')!;
+
+    refreshButton.click();
+
+    expect(refreshButton.disabled).toBe(true);
+    expect(refreshButton.textContent).toContain('Refreshing...');
+    expect(wishApiService.getWishes).toHaveBeenCalledTimes(1);
+
+    wishes$.next([wish]);
+    wishes$.complete();
+    fixture.detectChanges();
+
+    expect(refreshButton.disabled).toBe(false);
+    expect(refreshButton.textContent).toContain('Refresh');
+    expect(compiled.textContent).toContain('Kindle');
+  });
+
   it('should create wish and reload wishes', () => {
     const request: WishRequest = {
       wishName: 'Kindle',
@@ -120,6 +146,45 @@ describe('WishListPage', () => {
 
     expect(wishApiService.createWish).toHaveBeenCalledWith(request);
     expect(wishApiService.getWishes).toHaveBeenCalledTimes(2);
+  });
+
+  it('should show saving state and ignore duplicate create wish submissions', () => {
+    const request: WishRequest = {
+      wishName: 'Kindle',
+      wishPrice: 120,
+      url: null,
+      categoryId: 1,
+      priority: 'HIGH',
+    };
+    const createWish$ = new Subject<WishResponse>();
+
+    wishApiService.getWishes.mockReturnValue(of([]));
+    wishApiService.createWish.mockReturnValue(createWish$);
+    categoryApiService.getCategories.mockReturnValue(of([]));
+
+    fixture.detectChanges();
+
+    const form = fixture.debugElement.query(By.directive(WishCreateForm))
+      .componentInstance as WishCreateForm;
+
+    form.saveWish.emit(request);
+    fixture.detectChanges();
+
+    const formElement = fixture.debugElement.query(By.directive(WishCreateForm)).nativeElement as HTMLElement;
+    const button = formElement.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+    form.saveWish.emit(request);
+
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toContain('Creating wish...');
+    expect(wishApiService.createWish).toHaveBeenCalledTimes(1);
+
+    createWish$.next(wish);
+    createWish$.complete();
+    fixture.detectChanges();
+
+    const updatedButton = formElement.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    expect(updatedButton.textContent).toContain('Create wish');
   });
 
   it('should create category and add it to the wish form categories', () => {
@@ -301,6 +366,80 @@ describe('WishListPage', () => {
     expect(compiled.textContent).not.toContain('Kindle');
   });
 
+  it('should show deleting state for the selected wish and ignore duplicate delete requests', () => {
+    const secondWish: WishResponse = {
+      id: 2,
+      wishName: 'Notebook',
+      wishPrice: 20,
+      url: null,
+      status: 'ACTIVE',
+      categoryId: 1,
+      categoryName: 'Books',
+      priority: 'LOW',
+    };
+    const deleteWish$ = new Subject<void>();
+
+    wishApiService.getWishes.mockReturnValue(of([wish, secondWish]));
+    wishApiService.deleteWish.mockReturnValue(deleteWish$);
+    categoryApiService.getCategories.mockReturnValue(of([]));
+
+    fixture.detectChanges();
+
+    const cards = fixture.debugElement.queryAll(By.directive(WishCard));
+    const firstCard = cards[0].componentInstance as WishCard;
+
+    firstCard.deleteWish.emit(1);
+    fixture.detectChanges();
+
+    const firstCardElement = cards[0].nativeElement as HTMLElement;
+    const secondCardElement = cards[1].nativeElement as HTMLElement;
+    const firstDeleteButton = firstCardElement.querySelector<HTMLButtonElement>('button')!;
+    const secondDeleteButton = secondCardElement.querySelector<HTMLButtonElement>('button')!;
+
+    firstCard.deleteWish.emit(1);
+
+    expect(firstDeleteButton.disabled).toBe(true);
+    expect(firstDeleteButton.textContent).toContain('Deleting...');
+    expect(secondDeleteButton.disabled).toBe(false);
+    expect(wishApiService.deleteWish).toHaveBeenCalledTimes(1);
+
+    deleteWish$.next();
+    deleteWish$.complete();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).not.toContain('Kindle');
+    expect(compiled.textContent).toContain('Notebook');
+  });
+
+  it('should clear deleting state when delete wish fails', () => {
+    const deleteWish$ = new Subject<void>();
+
+    wishApiService.getWishes.mockReturnValue(of([wish]));
+    wishApiService.deleteWish.mockReturnValue(deleteWish$);
+    categoryApiService.getCategories.mockReturnValue(of([]));
+
+    fixture.detectChanges();
+
+    const card = fixture.debugElement.query(By.directive(WishCard))
+      .componentInstance as WishCard;
+
+    card.deleteWish.emit(1);
+    fixture.detectChanges();
+
+    deleteWish$.error(new Error('Failed'));
+    fixture.detectChanges();
+
+    const cardElement = fixture.debugElement.query(By.directive(WishCard)).nativeElement as HTMLElement;
+    const deleteButton = cardElement.querySelector<HTMLButtonElement>('button')!;
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(deleteButton.disabled).toBe(false);
+    expect(deleteButton.textContent).toContain('Delete');
+    expect(compiled.textContent).toContain('Could not delete wish');
+  });
+
   it('should show generic delete error when delete wish fails', () => {
     wishApiService.getWishes.mockReturnValue(of([wish]));
     wishApiService.deleteWish.mockReturnValue(throwError(() => new Error('Failed')));
@@ -384,6 +523,62 @@ describe('WishListPage', () => {
     expect(wishApiService.updateWish).toHaveBeenCalledWith(1, request);
     expect(compiled.textContent).toContain('Kobo');
     expect(button.textContent).toContain('Create wish');
+  });
+
+  it('should show saving state and ignore duplicate update wish submissions', async () => {
+    const request: WishRequest = {
+      wishName: 'Kobo',
+      wishPrice: 150,
+      url: null,
+      categoryId: 1,
+      priority: 'MEDIUM',
+    };
+    const updatedWish: WishResponse = {
+      ...wish,
+      wishName: 'Kobo',
+      wishPrice: 150,
+      priority: 'MEDIUM',
+    };
+    const updateWish$ = new Subject<WishResponse>();
+
+    wishApiService.getWishes.mockReturnValue(of([wish]));
+    wishApiService.updateWish.mockReturnValue(updateWish$);
+    categoryApiService.getCategories.mockReturnValue(
+      of([{ id: 1, name: 'Books', code: 'books', label: 'Books' }]),
+    );
+
+    fixture.detectChanges();
+
+    const card = fixture.debugElement.query(By.directive(WishCard))
+      .componentInstance as WishCard;
+    card.editWish.emit(wish);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const form = fixture.debugElement.query(By.directive(WishCreateForm))
+      .componentInstance as WishCreateForm;
+    form.saveWish.emit(request);
+    fixture.detectChanges();
+
+    const formElement = fixture.debugElement.query(By.directive(WishCreateForm)).nativeElement as HTMLElement;
+    const button = formElement.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+    form.saveWish.emit(request);
+
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toContain('Updating wish...');
+    expect(wishApiService.updateWish).toHaveBeenCalledTimes(1);
+
+    updateWish$.next(updatedWish);
+    updateWish$.complete();
+    fixture.detectChanges();
+
+    const updatedButton = formElement.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(updatedButton.textContent).toContain('Create wish');
+    expect(compiled.textContent).toContain('Kobo');
   });
 
   it('should show generic update error when update wish fails', () => {

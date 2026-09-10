@@ -1,5 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
 
 import { CategoryApiService } from '../../../../core/api/category-api.service';
 import { WishApiService } from '../../../../core/api/wish-api.service';
@@ -21,10 +23,13 @@ import { WishCreateFieldErrors } from '../../models/wish-create-field-errors.mod
 export class WishListPage {
   private readonly wishApiService = inject(WishApiService);
   private readonly categoryApiService = inject(CategoryApiService);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly wishes = signal<WishResponse[]>([]);
   protected readonly categories = signal<CategoryResponse[]>([]);
   protected readonly isLoading = signal(false);
+  protected readonly isSavingWish = signal(false);
+  protected readonly deletingWishIds = signal<ReadonlySet<number>>(new Set<number>());
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly createFieldErrors = signal<WishCreateFieldErrors>({});
   protected readonly categoryFieldErrors = signal<CategoryCreateFieldErrors>({});
@@ -38,23 +43,32 @@ export class WishListPage {
   }
 
   protected loadWishes(): void {
+    if (this.isLoading()) {
+      return;
+    }
+
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
-    this.wishApiService.getWishes().subscribe({
+    this.wishApiService.getWishes().pipe(
+      finalize(() => {
+        this.isLoading.set(false);
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
       next: (wishes) => {
         this.wishes.set(wishes);
-        this.isLoading.set(false);
       },
       error: () => {
         this.errorMessage.set('Could not load wishes');
-        this.isLoading.set(false);
       },
     });
   }
 
   protected loadCategories(): void {
-    this.categoryApiService.getCategories().subscribe({
+    this.categoryApiService.getCategories().pipe(
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
       next: (categories) => {
         this.categories.set(categories);
       },
@@ -68,7 +82,9 @@ export class WishListPage {
     this.categoryErrorMessage.set(null);
     this.categoryFieldErrors.set({});
 
-    this.categoryApiService.createCategory(request).subscribe({
+    this.categoryApiService.createCategory(request).pipe(
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
       next: (category) => {
         this.categories.update((categories) => [...categories, category]);
         this.categoryFormResetKey.update((resetKey) => resetKey + 1);
@@ -87,6 +103,10 @@ export class WishListPage {
   }
 
   protected saveWish(request: WishRequest): void {
+    if (this.isSavingWish()) {
+      return;
+    }
+
     const editingWish = this.editingWish();
 
     if (editingWish) {
@@ -100,8 +120,14 @@ export class WishListPage {
   private createWish(request: WishRequest): void {
     this.errorMessage.set(null);
     this.createFieldErrors.set({});
+    this.isSavingWish.set(true);
 
-    this.wishApiService.createWish(request).subscribe({
+    this.wishApiService.createWish(request).pipe(
+      finalize(() => {
+        this.isSavingWish.set(false);
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
       next: () => {
         this.loadWishes();
       },
@@ -121,8 +147,14 @@ export class WishListPage {
   private updateWish(id: number, request: WishRequest): void {
     this.errorMessage.set(null);
     this.createFieldErrors.set({});
+    this.isSavingWish.set(true);
 
-    this.wishApiService.updateWish(id, request).subscribe({
+    this.wishApiService.updateWish(id, request).pipe(
+      finalize(() => {
+        this.isSavingWish.set(false);
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
       next: (updatedWish) => {
         this.wishes.update((wishes) =>
           wishes.map((wish) => wish.id === id ? updatedWish : wish),
@@ -143,9 +175,19 @@ export class WishListPage {
   }
 
   protected deleteWish(id: number): void {
-    this.errorMessage.set(null);
+    if (this.isSavingWish() || this.deletingWishIds().has(id)) {
+      return;
+    }
 
-    this.wishApiService.deleteWish(id).subscribe({
+    this.errorMessage.set(null);
+    this.addDeletingWishId(id);
+
+    this.wishApiService.deleteWish(id).pipe(
+      finalize(() => {
+        this.removeDeletingWishId(id);
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
       next: () => {
         this.wishes.update((wishes) => wishes.filter((wish) => wish.id !== id));
       },
@@ -156,9 +198,31 @@ export class WishListPage {
   }
 
   protected startEdit(wish: WishResponse): void {
+    if (this.isSavingWish() || this.deletingWishIds().has(wish.id)) {
+      return;
+    }
+
     this.errorMessage.set(null);
     this.createFieldErrors.set({});
     this.editingWish.set(wish);
+  }
+
+  private addDeletingWishId(id: number): void {
+    this.deletingWishIds.update((deletingWishIds) => {
+      const nextDeletingWishIds = new Set(deletingWishIds);
+      nextDeletingWishIds.add(id);
+
+      return nextDeletingWishIds;
+    });
+  }
+
+  private removeDeletingWishId(id: number): void {
+    this.deletingWishIds.update((deletingWishIds) => {
+      const nextDeletingWishIds = new Set(deletingWishIds);
+      nextDeletingWishIds.delete(id);
+
+      return nextDeletingWishIds;
+    });
   }
 
   private getValidationFieldErrors(error: unknown): WishCreateFieldErrors | null {
