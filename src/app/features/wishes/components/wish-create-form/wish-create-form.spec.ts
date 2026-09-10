@@ -105,4 +105,74 @@ describe('WishCreateForm', () => {
     expect(prioritySelect.selectedOptions[0].textContent?.trim()).toBe('HIGH');
     expect(button.textContent).toContain('Update wish');
   });
+
+  it('should disable fields and show creating label while saving a new wish', async () => {
+    fixture.componentRef.setInput('isSaving', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const controls = compiled.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select');
+    const button = compiled.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+    expect(Array.from(controls).every((control) => control.disabled)).toBe(true);
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toContain('Creating wish...');
+  });
+
+  it('should show updating label while saving an edited wish', async () => {
+    fixture.componentRef.setInput('editingWish', {
+      id: 1,
+      wishName: 'Kindle',
+      wishPrice: 120,
+      url: null,
+      status: 'ACTIVE',
+      categoryId: 1,
+      categoryName: 'Books',
+      priority: 'HIGH',
+    });
+    fixture.componentRef.setInput('isSaving', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const button = compiled.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toContain('Updating wish...');
+  });
+
+  it('should not emit wish request while saving', async () => {
+    let emittedRequest: WishRequest | undefined;
+
+    component.saveWish.subscribe((request) => {
+      emittedRequest = request;
+    });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const nameInput = compiled.querySelector<HTMLInputElement>('#wishName')!;
+    nameInput.value = 'Kindle';
+    nameInput.dispatchEvent(new Event('input'));
+
+    const priceInput = compiled.querySelector<HTMLInputElement>('#wishPrice')!;
+    priceInput.value = '120';
+    priceInput.dispatchEvent(new Event('input'));
+
+    const categorySelect = compiled.querySelector<HTMLSelectElement>('#categoryId')!;
+    categorySelect.value = categorySelect.options[1].value;
+    categorySelect.dispatchEvent(new Event('change'));
+
+    await fixture.whenStable();
+
+    fixture.componentRef.setInput('isSaving', true);
+    fixture.detectChanges();
+
+    const form = compiled.querySelector<HTMLFormElement>('form')!;
+    form.dispatchEvent(new Event('submit'));
+
+    expect(emittedRequest).toBeUndefined();
+  });
 });

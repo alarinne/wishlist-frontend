@@ -15,6 +15,7 @@ export class WishCreateForm {
   readonly categories = input.required<CategoryResponse[]>();
   readonly editingWish = input<WishResponse | null>(null);
   readonly fieldErrors = input<WishCreateFieldErrors>({});
+  readonly isSaving = input(false);
   readonly saveWish = output<WishRequest>();
 
   protected readonly priorities: Priority[] = ['LOW', 'MEDIUM', 'HIGH'];
@@ -41,6 +42,10 @@ export class WishCreateForm {
   });
 
   protected submitForm(): void {
+    if (this.isSaving()) {
+      return;
+    }
+
     if (!this.wishName || this.wishPrice === null || this.categoryId === null) {
       return;
     }
