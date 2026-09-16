@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
@@ -13,6 +13,7 @@ import { WishCard } from '../../components/wish-card/wish-card';
 import { WishCreateForm } from '../../components/wish-create-form/wish-create-form';
 import { CategoryCreateFieldErrors } from '../../models/category-create-field-errors.model';
 import { WishCreateFieldErrors } from '../../models/wish-create-field-errors.model';
+import { WishFormMode } from '../../models/wish-form-mode.model';
 
 @Component({
   selector: 'app-wish-list-page',
@@ -36,6 +37,7 @@ export class WishListPage {
   protected readonly categoryErrorMessage = signal<string | null>(null);
   protected readonly categoryFormResetKey = signal(0);
   protected readonly editingWish = signal<WishResponse | null>(null);
+  protected readonly wishFormMode = computed<WishFormMode>(() => this.editingWish() ? 'edit' : 'create');
 
   ngOnInit(): void {
     this.loadWishes();

@@ -142,7 +142,7 @@ describe('WishListPage', () => {
     const form = fixture.debugElement.query(By.directive(WishCreateForm))
       .componentInstance as WishCreateForm;
 
-    form.saveWish.emit(request);
+    form.submitWish.emit(request);
 
     expect(wishApiService.createWish).toHaveBeenCalledWith(request);
     expect(wishApiService.getWishes).toHaveBeenCalledTimes(2);
@@ -167,13 +167,13 @@ describe('WishListPage', () => {
     const form = fixture.debugElement.query(By.directive(WishCreateForm))
       .componentInstance as WishCreateForm;
 
-    form.saveWish.emit(request);
+    form.submitWish.emit(request);
     fixture.detectChanges();
 
     const formElement = fixture.debugElement.query(By.directive(WishCreateForm)).nativeElement as HTMLElement;
     const button = formElement.querySelector<HTMLButtonElement>('button[type="submit"]')!;
 
-    form.saveWish.emit(request);
+    form.submitWish.emit(request);
 
     expect(button.disabled).toBe(true);
     expect(button.textContent).toContain('Creating wish...');
@@ -310,7 +310,7 @@ describe('WishListPage', () => {
     const form = fixture.debugElement.query(By.directive(WishCreateForm))
       .componentInstance as WishCreateForm;
 
-    form.saveWish.emit(request);
+    form.submitWish.emit(request);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -339,7 +339,7 @@ describe('WishListPage', () => {
     const form = fixture.debugElement.query(By.directive(WishCreateForm))
       .componentInstance as WishCreateForm;
 
-    form.saveWish.emit(request);
+    form.submitWish.emit(request);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -513,7 +513,7 @@ describe('WishListPage', () => {
 
     const form = fixture.debugElement.query(By.directive(WishCreateForm))
       .componentInstance as WishCreateForm;
-    form.saveWish.emit(request);
+    form.submitWish.emit(request);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -558,13 +558,13 @@ describe('WishListPage', () => {
 
     const form = fixture.debugElement.query(By.directive(WishCreateForm))
       .componentInstance as WishCreateForm;
-    form.saveWish.emit(request);
+    form.submitWish.emit(request);
     fixture.detectChanges();
 
     const formElement = fixture.debugElement.query(By.directive(WishCreateForm)).nativeElement as HTMLElement;
     const button = formElement.querySelector<HTMLButtonElement>('button[type="submit"]')!;
 
-    form.saveWish.emit(request);
+    form.submitWish.emit(request);
 
     expect(button.disabled).toBe(true);
     expect(button.textContent).toContain('Updating wish...');
@@ -603,7 +603,7 @@ describe('WishListPage', () => {
 
     const form = fixture.debugElement.query(By.directive(WishCreateForm))
       .componentInstance as WishCreateForm;
-    form.saveWish.emit(request);
+    form.submitWish.emit(request);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;

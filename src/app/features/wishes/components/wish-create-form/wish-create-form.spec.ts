@@ -29,7 +29,7 @@ describe('WishCreateForm', () => {
   it('should emit wish request when form is valid', async () => {
     let emittedRequest: WishRequest | undefined;
 
-    component.saveWish.subscribe((request) => {
+    component.submitWish.subscribe((request) => {
       emittedRequest = request;
     });
 
@@ -76,7 +76,8 @@ describe('WishCreateForm', () => {
   });
 
   it('should prefill fields when editing wish is provided', async () => {
-    fixture.componentRef.setInput('editingWish', {
+    fixture.componentRef.setInput('mode', 'edit');
+    fixture.componentRef.setInput('initialWish', {
       id: 1,
       wishName: 'Kindle',
       wishPrice: 120,
@@ -106,6 +107,43 @@ describe('WishCreateForm', () => {
     expect(button.textContent).toContain('Update wish');
   });
 
+  it('should reset fields when mode returns to create', async () => {
+    fixture.componentRef.setInput('mode', 'edit');
+    fixture.componentRef.setInput('initialWish', {
+      id: 1,
+      wishName: 'Kindle',
+      wishPrice: 120,
+      url: 'https://example.com/kindle',
+      status: 'ACTIVE',
+      categoryId: 1,
+      categoryName: 'Books',
+      priority: 'HIGH',
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentRef.setInput('mode', 'create');
+    fixture.componentRef.setInput('initialWish', null);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const nameInput = compiled.querySelector<HTMLInputElement>('#wishName')!;
+    const priceInput = compiled.querySelector<HTMLInputElement>('#wishPrice')!;
+    const urlInput = compiled.querySelector<HTMLInputElement>('#url')!;
+    const categorySelect = compiled.querySelector<HTMLSelectElement>('#categoryId')!;
+    const prioritySelect = compiled.querySelector<HTMLSelectElement>('#priority')!;
+    const button = compiled.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+    expect(nameInput.value).toBe('');
+    expect(priceInput.value).toBe('');
+    expect(urlInput.value).toBe('');
+    expect(categorySelect.selectedOptions[0].textContent?.trim()).toBe('Select category');
+    expect(prioritySelect.selectedOptions[0].textContent?.trim()).toBe('MEDIUM');
+    expect(button.textContent).toContain('Create wish');
+  });
+
   it('should disable fields and show creating label while saving a new wish', async () => {
     fixture.componentRef.setInput('isSaving', true);
     fixture.detectChanges();
@@ -122,7 +160,8 @@ describe('WishCreateForm', () => {
   });
 
   it('should show updating label while saving an edited wish', async () => {
-    fixture.componentRef.setInput('editingWish', {
+    fixture.componentRef.setInput('mode', 'edit');
+    fixture.componentRef.setInput('initialWish', {
       id: 1,
       wishName: 'Kindle',
       wishPrice: 120,
@@ -147,7 +186,7 @@ describe('WishCreateForm', () => {
   it('should not emit wish request while saving', async () => {
     let emittedRequest: WishRequest | undefined;
 
-    component.saveWish.subscribe((request) => {
+    component.submitWish.subscribe((request) => {
       emittedRequest = request;
     });
 
