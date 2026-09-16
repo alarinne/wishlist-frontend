@@ -77,4 +77,39 @@ describe('WishCard', () => {
 
     expect(editedWish).toEqual(wish);
   });
+
+  it('should disable actions and show deleting label when wish is deleting', () => {
+    fixture.componentRef.setInput('isDeleting', true);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const buttons = compiled.querySelectorAll('button');
+
+    expect(buttons[0].disabled).toBe(true);
+    expect(buttons[0].textContent).toContain('Deleting...');
+    expect(buttons[1].disabled).toBe(true);
+  });
+
+  it('should not emit actions when actions are disabled', () => {
+    let deletedWishId: number | undefined;
+    let editedWish: WishResponse | undefined;
+
+    component.deleteWish.subscribe((id) => {
+      deletedWishId = id;
+    });
+    component.editWish.subscribe((selectedWish) => {
+      editedWish = selectedWish;
+    });
+
+    fixture.componentRef.setInput('actionsDisabled', true);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const buttons = compiled.querySelectorAll('button');
+    buttons[0].click();
+    buttons[1].click();
+
+    expect(deletedWishId).toBeUndefined();
+    expect(editedWish).toBeUndefined();
+  });
 });

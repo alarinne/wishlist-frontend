@@ -12,11 +12,11 @@
     </a>
   }
 
-  <button type="button" (click)="requestDelete()">
-    Delete
+  <button type="button" [disabled]="actionsDisabled() || isDeleting()" (click)="requestDelete()">
+    {{ isDeleting() ? 'Deleting...' : 'Delete' }}
   </button>
 
-  <button type="button" (click)="requestEdit()">
+  <button type="button" [disabled]="actionsDisabled() || isDeleting()" (click)="requestEdit()">
     Edit
   </button>
 </article>

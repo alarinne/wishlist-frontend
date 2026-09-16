@@ -1,0 +1,46 @@
+<form class="category-create-form" #categoryForm="ngForm" (ngSubmit)="submitForm()">
+  <h3>Create category</h3>
+
+  <label for="categoryName">Name</label>
+  <input
+    id="categoryName"
+    name="categoryName"
+    type="text"
+    [(ngModel)]="name"
+    required
+  />
+
+  @if (fieldErrors().name) {
+    <p class="field-error">{{ fieldErrors().name }}</p>
+  }
+
+  <label for="categoryCode">Code</label>
+  <input
+    id="categoryCode"
+    name="categoryCode"
+    type="text"
+    [(ngModel)]="code"
+    required
+  />
+
+  @if (fieldErrors().code) {
+    <p class="field-error">{{ fieldErrors().code }}</p>
+  }
+
+  <label for="categoryLabel">Label</label>
+  <input
+    id="categoryLabel"
+    name="categoryLabel"
+    type="text"
+    [(ngModel)]="label"
+    required
+  />
+
+  @if (fieldErrors().label) {
+    <p class="field-error">{{ fieldErrors().label }}</p>
+  }
+
+  <button type="submit" [disabled]="categoryForm.invalid">
+    Create category
+  </button>
+</form>

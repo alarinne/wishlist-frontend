@@ -10,14 +10,24 @@ import { WishResponse } from '../../../../core/models/wish.model';
 })
 export class WishCard {
   readonly wish = input.required<WishResponse>();
+  readonly actionsDisabled = input(false);
+  readonly isDeleting = input(false);
   readonly deleteWish = output<number>();
   readonly editWish = output<WishResponse>();
 
   protected requestDelete(): void {
+    if (this.actionsDisabled() || this.isDeleting()) {
+      return;
+    }
+
     this.deleteWish.emit(this.wish().id);
   }
 
   protected requestEdit(): void {
+    if (this.actionsDisabled() || this.isDeleting()) {
+      return;
+    }
+
     this.editWish.emit(this.wish());
   }
 }
