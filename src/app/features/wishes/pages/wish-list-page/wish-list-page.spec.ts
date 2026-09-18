@@ -5,7 +5,7 @@ import { of, Subject, throwError } from 'rxjs';
 
 import { CategoryApiService } from '../../../../core/api/category-api.service';
 import { WishApiService } from '../../../../core/api/wish-api.service';
-import { CategoryRequest } from '../../../../core/models/category.model';
+import { CategoryRequest, CategoryResponse } from '../../../../core/models/category.model';
 import { WishRequest, WishResponse } from '../../../../core/models/wish.model';
 import { CategoryCreateForm } from '../../components/category-create-form/category-create-form';
 import { WishCard } from '../../components/wish-card/wish-card';
@@ -85,6 +85,52 @@ describe('WishListPage', () => {
     expect(categoryApiService.getCategories).toHaveBeenCalledTimes(1);
     expect(compiled.textContent).toContain('Kindle');
     expect(compiled.textContent).toContain('Books');
+    expect(compiled.textContent).not.toContain('No categories yet.');
+  });
+
+  it('should show loading and then empty state when no categories are returned', () => {
+    const categories$ = new Subject<CategoryResponse[]>();
+
+    wishApiService.getWishes.mockReturnValue(of([]));
+    categoryApiService.getCategories.mockReturnValue(categories$);
+
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Loading categories...');
+    expect(compiled.textContent).not.toContain('No categories yet.');
+
+    categories$.next([]);
+    categories$.complete();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).not.toContain('Loading categories...');
+    expect(compiled.textContent).toContain('No categories yet.');
+  });
+
+  it('should retry a category load error without clearing a wish load error', () => {
+    wishApiService.getWishes.mockReturnValue(throwError(() => new Error('Failed')));
+    categoryApiService.getCategories
+      .mockReturnValueOnce(throwError(() => new Error('Failed')))
+      .mockReturnValueOnce(of([{ id: 1, name: 'Books', code: 'books', label: 'Books' }]));
+
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Could not load categories');
+    expect(compiled.textContent).toContain('Could not load wishes');
+    expect(compiled.textContent).not.toContain('No categories yet.');
+
+    compiled.querySelector<HTMLButtonElement>('[role="alert"] button')!.click();
+    fixture.detectChanges();
+
+    expect(categoryApiService.getCategories).toHaveBeenCalledTimes(2);
+    expect(wishApiService.getWishes).toHaveBeenCalledTimes(1);
+    expect(compiled.textContent).toContain('Books');
+    expect(compiled.textContent).toContain('Could not load wishes');
+    expect(compiled.textContent).not.toContain('Could not load categories');
   });
 
   it('should show error when wishes cannot be loaded', () => {
@@ -205,6 +251,8 @@ describe('WishListPage', () => {
 
     fixture.detectChanges();
 
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No categories yet.');
+
     const form = fixture.debugElement.query(By.directive(CategoryCreateForm))
       .componentInstance as CategoryCreateForm;
 
@@ -215,6 +263,7 @@ describe('WishListPage', () => {
 
     expect(categoryApiService.createCategory).toHaveBeenCalledWith(request);
     expect(compiled.textContent).toContain('Games');
+    expect(compiled.textContent).not.toContain('No categories yet.');
   });
 
   it('should show backend validation errors when create category returns bad request', () => {

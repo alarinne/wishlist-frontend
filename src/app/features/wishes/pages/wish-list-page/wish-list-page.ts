@@ -29,12 +29,14 @@ export class WishListPage {
   protected readonly wishes = signal<WishResponse[]>([]);
   protected readonly categories = signal<CategoryResponse[]>([]);
   protected readonly isLoading = signal(false);
+  protected readonly isLoadingCategories = signal(false);
   protected readonly isSavingWish = signal(false);
   protected readonly deletingWishIds = signal<ReadonlySet<number>>(new Set<number>());
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly createFieldErrors = signal<WishCreateFieldErrors>({});
   protected readonly categoryFieldErrors = signal<CategoryCreateFieldErrors>({});
   protected readonly categoryErrorMessage = signal<string | null>(null);
+  protected readonly categoryLoadErrorMessage = signal<string | null>(null);
   protected readonly categoryFormResetKey = signal(0);
   protected readonly editingWish = signal<WishResponse | null>(null);
   protected readonly wishFormMode = computed<WishFormMode>(() => this.editingWish() ? 'edit' : 'create');
@@ -68,14 +70,24 @@ export class WishListPage {
   }
 
   protected loadCategories(): void {
+    if (this.isLoadingCategories()) {
+      return;
+    }
+
+    this.isLoadingCategories.set(true);
+    this.categoryLoadErrorMessage.set(null);
+
     this.categoryApiService.getCategories().pipe(
+      finalize(() => {
+        this.isLoadingCategories.set(false);
+      }),
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
       next: (categories) => {
         this.categories.set(categories);
       },
       error: () => {
-        this.errorMessage.set('Could not load categories');
+        this.categoryLoadErrorMessage.set('Could not load categories');
       },
     });
   }
