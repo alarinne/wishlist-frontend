@@ -1,9 +1,10 @@
-import { Component, effect, input, output } from '@angular/core';
+import { Component, computed, effect, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { CategoryResponse } from '../../../../core/models/category.model';
 import { Priority, WishRequest, WishResponse } from '../../../../core/models/wish.model';
 import { WishCreateFieldErrors } from '../../models/wish-create-field-errors.model';
+import { WishFormMode } from '../../models/wish-form-mode.model';
 
 @Component({
   selector: 'app-wish-create-form',
@@ -13,12 +14,14 @@ import { WishCreateFieldErrors } from '../../models/wish-create-field-errors.mod
 })
 export class WishCreateForm {
   readonly categories = input.required<CategoryResponse[]>();
-  readonly editingWish = input<WishResponse | null>(null);
+  readonly mode = input<WishFormMode>('create');
+  readonly initialWish = input<WishResponse | null>(null);
   readonly fieldErrors = input<WishCreateFieldErrors>({});
   readonly isSaving = input(false);
-  readonly saveWish = output<WishRequest>();
+  readonly submitWish = output<WishRequest>();
 
   protected readonly priorities: Priority[] = ['LOW', 'MEDIUM', 'HIGH'];
+  protected readonly isEditMode = computed(() => this.mode() === 'edit');
 
   protected wishName = '';
   protected wishPrice: number | null = null;
@@ -26,19 +29,16 @@ export class WishCreateForm {
   protected categoryId: number | null = null;
   protected priority: Priority = 'MEDIUM';
 
-  private readonly syncEditingWish = effect(() => {
-    const editingWish = this.editingWish();
+  private readonly syncInitialWish = effect(() => {
+    const mode = this.mode();
+    const initialWish = this.initialWish();
 
-    if (!editingWish) {
+    if (mode !== 'edit' || !initialWish) {
       this.resetForm();
       return;
     }
 
-    this.wishName = editingWish.wishName;
-    this.wishPrice = editingWish.wishPrice;
-    this.url = editingWish.url ?? '';
-    this.categoryId = editingWish.categoryId;
-    this.priority = editingWish.priority;
+    this.prefillForm(initialWish);
   });
 
   protected submitForm(): void {
@@ -50,13 +50,21 @@ export class WishCreateForm {
       return;
     }
 
-    this.saveWish.emit({
+    this.submitWish.emit({
       wishName: this.wishName,
       wishPrice: this.wishPrice,
       url: this.url || null,
       categoryId: this.categoryId,
       priority: this.priority,
     });
+  }
+
+  private prefillForm(wish: WishResponse): void {
+    this.wishName = wish.wishName;
+    this.wishPrice = wish.wishPrice;
+    this.url = wish.url ?? '';
+    this.categoryId = wish.categoryId;
+    this.priority = wish.priority;
   }
 
   private resetForm(): void {

@@ -79,9 +79,9 @@
 
   <button type="submit" [disabled]="wishForm.invalid || isSaving()">
     @if (isSaving()) {
-      {{ editingWish() ? 'Updating wish...' : 'Creating wish...' }}
+      {{ isEditMode() ? 'Updating wish...' : 'Creating wish...' }}
     } @else {
-      {{ editingWish() ? 'Update wish' : 'Create wish' }}
+      {{ isEditMode() ? 'Update wish' : 'Create wish' }}
     }
   </button>
 </form>

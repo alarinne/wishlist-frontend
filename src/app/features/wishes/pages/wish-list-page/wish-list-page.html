@@ -17,12 +17,24 @@
     <p>{{ categoryErrorMessage() }}</p>
   }
 
+  @if (isLoadingCategories()) {
+    <p role="status">Loading categories...</p>
+  } @else if (categoryLoadErrorMessage()) {
+    <div role="alert">
+      <p>{{ categoryLoadErrorMessage() }}</p>
+      <button type="button" (click)="loadCategories()">Retry categories</button>
+    </div>
+  } @else if (categories().length === 0) {
+    <p role="status">No categories yet.</p>
+  }
+
   <app-wish-create-form
     [categories]="categories()"
-    [editingWish]="editingWish()"
+    [mode]="wishFormMode()"
+    [initialWish]="editingWish()"
     [fieldErrors]="createFieldErrors()"
     [isSaving]="isSavingWish()"
-    (saveWish)="saveWish($event)"
+    (submitWish)="saveWish($event)"
   />
 
   @if (errorMessage()) {
