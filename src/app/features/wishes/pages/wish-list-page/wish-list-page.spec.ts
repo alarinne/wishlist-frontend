@@ -19,6 +19,7 @@ describe('WishListPage', () => {
     getWishes: ReturnType<typeof vi.fn>;
     createWish: ReturnType<typeof vi.fn>;
     updateWish: ReturnType<typeof vi.fn>;
+    updateWishStatus: ReturnType<typeof vi.fn>;
     deleteWish: ReturnType<typeof vi.fn>;
   };
   let categoryApiService: {
@@ -42,6 +43,7 @@ describe('WishListPage', () => {
       getWishes: vi.fn(),
       createWish: vi.fn(),
       updateWish: vi.fn(),
+      updateWishStatus: vi.fn(),
       deleteWish: vi.fn(),
     };
 
@@ -659,5 +661,227 @@ describe('WishListPage', () => {
 
     expect(wishApiService.updateWish).toHaveBeenCalledWith(1, request);
     expect(compiled.textContent).toContain('Could not update wish');
+  });
+  describe('wish status actions', () => {
+    const secondWish: WishResponse = { ...wish, id: 2, wishName: 'Notebook', priority: 'LOW' };
+    const request: WishRequest = {
+      wishName: 'Draft', wishPrice: 120, url: null, categoryId: 1, priority: 'HIGH',
+    };
+
+    beforeEach(() => {
+      wishApiService.getWishes.mockReturnValue(of([wish, secondWish]));
+      categoryApiService.getCategories.mockReturnValue(
+        of([{ id: 1, name: 'Books', code: 'books', label: 'Books' }]),
+      );
+    });
+
+    function card(index = 0): WishCard {
+      return fixture.debugElement.queryAll(By.directive(WishCard))[index].componentInstance as WishCard;
+    }
+
+    function cardElement(index = 0): HTMLElement {
+      return fixture.debugElement.queryAll(By.directive(WishCard))[index].nativeElement as HTMLElement;
+    }
+
+    it.each([
+      ['ACTIVE', 'PURCHASED'], ['PURCHASED', 'ACTIVE'],
+    ] as const)('should replace only the server-updated wish after %s -> %s', (initial, target) => {
+      const currentWish: WishResponse = { ...wish, status: initial };
+      const updatedWish: WishResponse = { ...currentWish, status: target, wishName: 'Server wish' };
+      wishApiService.getWishes.mockReturnValue(of([currentWish, secondWish]));
+      wishApiService.updateWishStatus.mockReturnValue(of(updatedWish));
+      fixture.detectChanges();
+
+      card().updateWishStatus.emit({ id: 1, status: target });
+      fixture.detectChanges();
+
+      expect(wishApiService.updateWishStatus).toHaveBeenCalledWith(1, { status: target });
+      expect(card().wish()).toBe(updatedWish);
+      expect(card(1).wish()).toBe(secondWish);
+      expect(currentWish.status).toBe(initial);
+      expect(wishApiService.getWishes).toHaveBeenCalledTimes(1);
+      expect(card().isUpdatingStatus()).toBe(false);
+    });
+
+    it('should guard duplicates and conflicting actions while leaving other cards available', async () => {
+      const status$ = new Subject<WishResponse>();
+      wishApiService.updateWishStatus.mockReturnValue(status$);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const firstCard = card();
+      firstCard.updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      firstCard.updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+      firstCard.deleteWish.emit(1);
+      firstCard.editWish.emit(wish);
+      fixture.debugElement.query(By.css('header button')).triggerEventHandler('click');
+      const form = fixture.debugElement.query(By.directive(WishCreateForm)).componentInstance as WishCreateForm;
+      form.submitWish.emit(request);
+
+      expect(wishApiService.updateWishStatus).toHaveBeenCalledTimes(1);
+      expect(wishApiService.deleteWish).not.toHaveBeenCalled();
+      expect(wishApiService.createWish).not.toHaveBeenCalled();
+      expect(wishApiService.updateWish).not.toHaveBeenCalled();
+      expect(wishApiService.getWishes).toHaveBeenCalledTimes(1);
+      expect(form.mode()).toBe('create');
+      expect(firstCard.wish().status).toBe('ACTIVE');
+      expect(Array.from(cardElement().querySelectorAll('button')).every((button) => button.disabled)).toBe(true);
+      expect(cardElement().textContent).toContain('Updating status...');
+      expect(cardElement(1).querySelector<HTMLButtonElement>('[data-action="update-status"]')!.disabled).toBe(false);
+      expect((fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('header button')!.disabled).toBe(true);
+      expect(form.actionsDisabled()).toBe(true);
+      expect(form.isSaving()).toBe(false);
+
+      status$.next({ ...wish, status: 'PURCHASED' });
+      status$.complete();
+      fixture.detectChanges();
+      expect(firstCard.wish().status).toBe('PURCHASED');
+      expect(firstCard.isUpdatingStatus()).toBe(false);
+      expect(form.actionsDisabled()).toBe(false);
+      expect((fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('header button')!.disabled).toBe(false);
+    });
+
+    it.each([400, 404, 500, 0])('should retain status, release controls and allow retry after HTTP %s', (httpStatus) => {
+      const status$ = new Subject<WishResponse>();
+      wishApiService.updateWishStatus.mockReturnValue(status$);
+      fixture.detectChanges();
+      card().updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+      fixture.detectChanges();
+      status$.error(new HttpErrorResponse({
+        status: httpStatus,
+        error: httpStatus === 0 ? null : { message: 'Status update rejected', fieldErrors: [] },
+      }));
+      fixture.detectChanges();
+
+      expect(card().wish().status).toBe('ACTIVE');
+      expect(card().isUpdatingStatus()).toBe(false);
+      expect(cardElement().querySelector<HTMLButtonElement>('[data-action="update-status"]')!.disabled).toBe(false);
+      expect(cardElement().querySelector('[role="alert"]')!.textContent)
+        .toContain(httpStatus === 0 ? 'Could not update wish status' : 'Status update rejected');
+      expect(card(1).statusError()).toBeNull();
+
+      wishApiService.updateWishStatus.mockReturnValue(of({ ...wish, status: 'PURCHASED' }));
+      card().updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+      fixture.detectChanges();
+      expect(wishApiService.updateWishStatus).toHaveBeenCalledTimes(2);
+      expect(card().wish().status).toBe('PURCHASED');
+      expect(cardElement().querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('should keep concurrent requests and errors isolated by wish id', () => {
+      const first$ = new Subject<WishResponse>();
+      const second$ = new Subject<WishResponse>();
+      wishApiService.updateWishStatus.mockImplementation((id: number) => id === 1 ? first$ : second$);
+      fixture.detectChanges();
+      card().updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+      card(1).updateWishStatus.emit({ id: 2, status: 'PURCHASED' });
+      fixture.detectChanges();
+
+      first$.next({ ...wish, status: 'PURCHASED' });
+      first$.complete();
+      fixture.detectChanges();
+      expect(card().isUpdatingStatus()).toBe(false);
+      expect(card(1).isUpdatingStatus()).toBe(true);
+      expect((fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('header button')!.disabled).toBe(true);
+
+      second$.error(new Error('Failed'));
+      fixture.detectChanges();
+      expect(card().wish().status).toBe('PURCHASED');
+      expect(card().statusError()).toBeNull();
+      expect(card(1).wish().status).toBe('ACTIVE');
+      expect(card(1).statusError()).toBe('Could not update wish status');
+      expect((fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('header button')!.disabled).toBe(false);
+    });
+
+    it('should ignore status changes for a deleting wish', () => {
+      const deletion$ = new Subject<void>();
+      wishApiService.deleteWish.mockReturnValue(deletion$);
+      fixture.detectChanges();
+      const firstCard = card();
+      firstCard.deleteWish.emit(1);
+      firstCard.updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+      expect(wishApiService.updateWishStatus).not.toHaveBeenCalled();
+      deletion$.complete();
+    });
+
+    it('should ignore status changes while a wish is being saved', () => {
+      const creation$ = new Subject<WishResponse>();
+      wishApiService.createWish.mockReturnValue(creation$);
+      fixture.detectChanges();
+      const form = fixture.debugElement.query(By.directive(WishCreateForm)).componentInstance as WishCreateForm;
+      form.submitWish.emit(request);
+      card().updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+      fixture.detectChanges();
+      expect(wishApiService.updateWishStatus).not.toHaveBeenCalled();
+      expect(cardElement().querySelector<HTMLButtonElement>('[data-action="update-status"]')!.disabled).toBe(true);
+      creation$.complete();
+    });
+
+    it('should ignore status changes and saves during a list refresh', () => {
+      const wishes$ = new Subject<WishResponse[]>();
+      fixture.detectChanges();
+      const firstCard = card();
+      const form = fixture.debugElement.query(By.directive(WishCreateForm)).componentInstance as WishCreateForm;
+      wishApiService.getWishes.mockReturnValue(wishes$);
+      fixture.debugElement.query(By.css('header button')).triggerEventHandler('click');
+      firstCard.updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+      form.submitWish.emit(request);
+      expect(wishApiService.updateWishStatus).not.toHaveBeenCalled();
+      expect(wishApiService.createWish).not.toHaveBeenCalled();
+      wishes$.next([wish, secondWish]);
+      wishes$.complete();
+    });
+
+    it.each(['success', 'failure'])('should preserve an edit draft after status %s', async (outcome) => {
+      const status$ = new Subject<WishResponse>();
+      wishApiService.updateWishStatus.mockReturnValue(status$);
+      fixture.detectChanges();
+      card().editWish.emit(wish);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const compiled = fixture.nativeElement as HTMLElement;
+      const nameInput = compiled.querySelector<HTMLInputElement>('#wishName')!;
+      nameInput.value = 'Unsaved draft';
+      nameInput.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+
+      card().updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+      fixture.detectChanges();
+      if (outcome === 'success') {
+        status$.next({ ...wish, status: 'PURCHASED' });
+        status$.complete();
+      } else {
+        status$.error(new Error('Failed'));
+      }
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const form = fixture.debugElement.query(By.directive(WishCreateForm)).componentInstance as WishCreateForm;
+      expect(nameInput.value).toBe('Unsaved draft');
+      expect(form.mode()).toBe('edit');
+      expect(form.initialWish()).toBe(wish);
+      expect(form.actionsDisabled()).toBe(false);
+    });
+
+    it('should ignore an unchanged status or an absent wish', () => {
+      fixture.detectChanges();
+      card().updateWishStatus.emit({ id: 1, status: 'ACTIVE' });
+      card().updateWishStatus.emit({ id: 999, status: 'PURCHASED' });
+      expect(wishApiService.updateWishStatus).not.toHaveBeenCalled();
+    });
+
+    it('should unsubscribe a pending status request when the page is destroyed', () => {
+      const status$ = new Subject<WishResponse>();
+      wishApiService.updateWishStatus.mockReturnValue(status$);
+      fixture.detectChanges();
+      card().updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+      expect(status$.observed).toBe(true);
+      fixture.destroy();
+      expect(status$.observed).toBe(false);
+    });
   });
 });

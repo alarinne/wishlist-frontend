@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { WishResponse } from '../../../../core/models/wish.model';
 import { WishCard } from './wish-card';
+import { WishStatusChange } from '../../models/wish-status-change.model';
 
 describe('WishCard', () => {
   let component: WishCard;
@@ -111,5 +112,56 @@ describe('WishCard', () => {
 
     expect(deletedWishId).toBeUndefined();
     expect(editedWish).toBeUndefined();
+  });
+  it.each([
+    ['ACTIVE', 'Mark purchased', 'PURCHASED'],
+    ['PURCHASED', 'Restore active', 'ACTIVE'],
+  ] as const)('should emit the target status for %s without mutating the wish', (status, label, target) => {
+    const currentWish: WishResponse = { ...wish, status };
+    fixture.componentRef.setInput('wish', currentWish);
+    fixture.detectChanges();
+    let change: WishStatusChange | undefined;
+    component.updateWishStatus.subscribe((event) => change = event);
+
+    const button = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('[data-action="update-status"]')!;
+    expect(button.textContent).toContain(label);
+    button.click();
+
+    expect(change).toEqual({ id: 1, status: target });
+    expect(currentWish.status).toBe(status);
+  });
+
+  it.each(['isUpdatingStatus', 'isDeleting', 'actionsDisabled'])('should prevent status events when %s is true', (input) => {
+    const onChange = vi.fn();
+    component.updateWishStatus.subscribe(onChange);
+    fixture.componentRef.setInput(input, true);
+    fixture.detectChanges();
+
+    const button = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('[data-action="update-status"]')!;
+    expect(button.disabled).toBe(true);
+    button.click();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('should disable all actions and announce status updating', () => {
+    fixture.componentRef.setInput('isUpdatingStatus', true);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(Array.from(compiled.querySelectorAll('button')).every((button) => button.disabled)).toBe(true);
+    expect(compiled.textContent).toContain('Updating status...');
+    expect(compiled.querySelector('article')?.getAttribute('aria-busy')).toBe('true');
+  });
+
+  it('should render status errors as accessible text without interpreting HTML', () => {
+    const message = '<img src=x onerror=alert(1)> Status update failed';
+    fixture.componentRef.setInput('statusError', message);
+    fixture.detectChanges();
+
+    const alert = (fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')!;
+    expect(alert.textContent).toBe(message);
+    expect(alert.querySelector('img')).toBeNull();
   });
 });

@@ -5,7 +5,7 @@
     name="wishName"
     type="text"
     [(ngModel)]="wishName"
-    [disabled]="isSaving()"
+    [disabled]="areControlsDisabled()"
     required
   />
 
@@ -19,7 +19,7 @@
     name="wishPrice"
     type="number"
     [(ngModel)]="wishPrice"
-    [disabled]="isSaving()"
+    [disabled]="areControlsDisabled()"
     min="0"
     required
   />
@@ -34,7 +34,7 @@
     name="url"
     type="url"
     [(ngModel)]="url"
-    [disabled]="isSaving()"
+    [disabled]="areControlsDisabled()"
   />
 
   <label for="categoryId">Category</label>
@@ -42,7 +42,7 @@
     id="categoryId"
     name="categoryId"
     [(ngModel)]="categoryId"
-    [disabled]="isSaving()"
+    [disabled]="areControlsDisabled()"
     required
   >
     <option [ngValue]="null" disabled>Select category</option>
@@ -63,7 +63,7 @@
     id="priority"
     name="priority"
     [(ngModel)]="priority"
-    [disabled]="isSaving()"
+    [disabled]="areControlsDisabled()"
     required
   >
     @for (priority of priorities; track priority) {
@@ -77,7 +77,7 @@
     <p class="field-error">{{ fieldErrors().priority }}</p>
   }
 
-  <button type="submit" [disabled]="wishForm.invalid || isSaving()">
+  <button type="submit" [disabled]="wishForm.invalid || areControlsDisabled()">
     @if (isSaving()) {
       {{ isEditMode() ? 'Updating wish...' : 'Creating wish...' }}
     } @else {

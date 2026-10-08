@@ -18,10 +18,12 @@ export class WishCreateForm {
   readonly initialWish = input<WishResponse | null>(null);
   readonly fieldErrors = input<WishCreateFieldErrors>({});
   readonly isSaving = input(false);
+  readonly actionsDisabled = input(false);
   readonly submitWish = output<WishRequest>();
 
   protected readonly priorities: Priority[] = ['LOW', 'MEDIUM', 'HIGH'];
   protected readonly isEditMode = computed(() => this.mode() === 'edit');
+  protected readonly areControlsDisabled = computed(() => this.isSaving() || this.actionsDisabled());
 
   protected wishName = '';
   protected wishPrice: number | null = null;
@@ -42,7 +44,7 @@ export class WishCreateForm {
   });
 
   protected submitForm(): void {
-    if (this.isSaving()) {
+    if (this.areControlsDisabled()) {
       return;
     }
 
