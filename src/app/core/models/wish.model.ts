@@ -1,6 +1,6 @@
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH';
 
-export type WishStatus = 'ACTIVE';
+export type WishStatus = 'ACTIVE' | 'PURCHASED';
 
 export interface WishRequest {
   wishName: string;
@@ -8,6 +8,10 @@ export interface WishRequest {
   url?: string | null;
   categoryId: number;
   priority: Priority;
+}
+
+export interface WishStatusUpdateRequest {
+  status: WishStatus;
 }
 
 export interface WishResponse {

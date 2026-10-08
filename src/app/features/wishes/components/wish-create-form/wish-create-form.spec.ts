@@ -214,4 +214,42 @@ describe('WishCreateForm', () => {
 
     expect(emittedRequest).toBeUndefined();
   });
+  it('should block conflicting actions without a saving label and preserve the edit draft', async () => {
+    fixture.componentRef.setInput('mode', 'edit');
+    fixture.componentRef.setInput('initialWish', {
+      id: 1, wishName: 'Kindle', wishPrice: 120, url: null, status: 'ACTIVE',
+      categoryId: 1, categoryName: 'Books', priority: 'HIGH',
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const nameInput = compiled.querySelector<HTMLInputElement>('#wishName')!;
+    nameInput.value = 'My draft';
+    nameInput.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    const onSubmit = vi.fn();
+    component.submitWish.subscribe(onSubmit);
+
+    fixture.componentRef.setInput('actionsDisabled', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const button = compiled.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toContain('Update wish');
+    expect(button.textContent).not.toContain('Updating wish...');
+    expect(Array.from(compiled.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select'))
+      .every((control) => control.disabled)).toBe(true);
+    compiled.querySelector('form')!.dispatchEvent(new Event('submit'));
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    fixture.componentRef.setInput('actionsDisabled', false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(nameInput.value).toBe('My draft');
+    expect(button.disabled).toBe(false);
+    compiled.querySelector('form')!.dispatchEvent(new Event('submit'));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ wishName: 'My draft' }));
+  });
 });
