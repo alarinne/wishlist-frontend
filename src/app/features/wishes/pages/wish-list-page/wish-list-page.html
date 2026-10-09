@@ -2,7 +2,7 @@
   <header>
     <h2>Wishes</h2>
 
-    <button type="button" [disabled]="isLoading()" (click)="loadWishes()">
+    <button type="button" [disabled]="isLoading() || isSavingWish() || hasPendingCardActions()" (click)="loadWishes()">
       {{ isLoading() ? 'Refreshing...' : 'Refresh' }}
     </button>
   </header>
@@ -34,6 +34,7 @@
     [initialWish]="editingWish()"
     [fieldErrors]="createFieldErrors()"
     [isSaving]="isSavingWish()"
+    [actionsDisabled]="formActionsDisabled()"
     (submitWish)="saveWish($event)"
   />
 
@@ -41,19 +42,33 @@
     <p>{{ errorMessage() }}</p>
   }
 
+  <app-wish-list-filters
+    [categories]="categories()"
+    [status]="selectedStatus()"
+    [categoryId]="selectedCategoryId()"
+    (statusChange)="selectedStatus.set($event)"
+    (categoryChange)="selectedCategoryId.set($event)"
+    (resetFilters)="resetFilters()"
+  />
+
   @if (isLoading()) {
     <p>Loading wishes...</p>
   } @else if (wishes().length === 0) {
     <p>No wishes yet.</p>
+  } @else if (filteredWishes().length === 0) {
+    <p role="status">No wishes match these filters.</p>
   } @else {
     <div>
-      @for (wish of wishes(); track wish.id) {
+      @for (wish of filteredWishes(); track wish.id) {
         <app-wish-card
           [wish]="wish"
-          [actionsDisabled]="isSavingWish()"
+          [actionsDisabled]="isSavingWish() || isLoading()"
           [isDeleting]="deletingWishIds().has(wish.id)"
+          [isUpdatingStatus]="updatingWishStatusIds().has(wish.id)"
+          [statusError]="statusErrors()[wish.id] ?? null"
           (editWish)="startEdit($event)"
           (deleteWish)="deleteWish($event)"
+          (updateWishStatus)="updateWishStatus($event)"
         />
       }
     </div>

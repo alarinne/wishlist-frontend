@@ -11,13 +11,16 @@ import { WishRequest, WishResponse } from '../../../../core/models/wish.model';
 import { CategoryCreateForm } from '../../components/category-create-form/category-create-form';
 import { WishCard } from '../../components/wish-card/wish-card';
 import { WishCreateForm } from '../../components/wish-create-form/wish-create-form';
+import { WishListFilters } from '../../components/wish-list-filters/wish-list-filters';
 import { CategoryCreateFieldErrors } from '../../models/category-create-field-errors.model';
 import { WishCreateFieldErrors } from '../../models/wish-create-field-errors.model';
 import { WishFormMode } from '../../models/wish-form-mode.model';
+import { WishStatusChange } from '../../models/wish-status-change.model';
+import { WishStatusFilter } from '../../models/wish-status-filter.model';
 
 @Component({
   selector: 'app-wish-list-page',
-  imports: [WishCard, WishCreateForm, CategoryCreateForm],
+  imports: [WishCard, WishCreateForm, CategoryCreateForm, WishListFilters],
   templateUrl: './wish-list-page.html',
   styleUrl: './wish-list-page.scss',
 })
@@ -28,10 +31,27 @@ export class WishListPage {
 
   protected readonly wishes = signal<WishResponse[]>([]);
   protected readonly categories = signal<CategoryResponse[]>([]);
+  protected readonly selectedStatus = signal<WishStatusFilter>('ALL');
+  protected readonly selectedCategoryId = signal<number | null>(null);
+  protected readonly filteredWishes = computed(() => {
+    const status = this.selectedStatus();
+    const categoryId = this.selectedCategoryId();
+
+    return this.wishes().filter((wish) =>
+      (status === 'ALL' || wish.status === status)
+      && (categoryId === null || wish.categoryId === categoryId),
+    );
+  });
   protected readonly isLoading = signal(false);
   protected readonly isLoadingCategories = signal(false);
   protected readonly isSavingWish = signal(false);
   protected readonly deletingWishIds = signal<ReadonlySet<number>>(new Set<number>());
+  protected readonly updatingWishStatusIds = signal<ReadonlySet<number>>(new Set<number>());
+  protected readonly statusErrors = signal<Readonly<Partial<Record<number, string>>>>({});
+  protected readonly hasPendingCardActions = computed(() =>
+    this.deletingWishIds().size > 0 || this.updatingWishStatusIds().size > 0,
+  );
+  protected readonly formActionsDisabled = computed(() => this.isLoading() || this.hasPendingCardActions());
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly createFieldErrors = signal<WishCreateFieldErrors>({});
   protected readonly categoryFieldErrors = signal<CategoryCreateFieldErrors>({});
@@ -46,8 +66,13 @@ export class WishListPage {
     this.loadCategories();
   }
 
+  protected resetFilters(): void {
+    this.selectedStatus.set('ALL');
+    this.selectedCategoryId.set(null);
+  }
+
   protected loadWishes(): void {
-    if (this.isLoading()) {
+    if (this.isLoading() || this.hasPendingCardActions()) {
       return;
     }
 
@@ -62,6 +87,7 @@ export class WishListPage {
     ).subscribe({
       next: (wishes) => {
         this.wishes.set(wishes);
+        this.statusErrors.set({});
       },
       error: () => {
         this.errorMessage.set('Could not load wishes');
@@ -117,7 +143,7 @@ export class WishListPage {
   }
 
   protected saveWish(request: WishRequest): void {
-    if (this.isSavingWish()) {
+    if (this.isSavingWish() || this.formActionsDisabled()) {
       return;
     }
 
@@ -188,8 +214,47 @@ export class WishListPage {
     });
   }
 
+  protected updateWishStatus(change: WishStatusChange): void {
+    if (this.isSavingWish() || this.isLoading()
+      || this.deletingWishIds().has(change.id) || this.updatingWishStatusIds().has(change.id)) {
+      return;
+    }
+
+    const wish = this.wishes().find((wish) => wish.id === change.id);
+    if (!wish || wish.status === change.status) {
+      return;
+    }
+
+    this.clearStatusError(change.id);
+    this.updatingWishStatusIds.update((ids) => new Set([...ids, change.id]));
+
+    this.wishApiService.updateWishStatus(change.id, { status: change.status }).pipe(
+      finalize(() => {
+        this.updatingWishStatusIds.update((ids) => {
+          const nextIds = new Set(ids);
+          nextIds.delete(change.id);
+          return nextIds;
+        });
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
+      next: (updatedWish) => {
+        this.wishes.update((wishes) =>
+          wishes.map((wish) => wish.id === change.id ? updatedWish : wish),
+        );
+      },
+      error: (error: unknown) => {
+        this.statusErrors.update((errors) => ({
+          ...errors,
+          [change.id]: this.getApiErrorMessage(error) ?? 'Could not update wish status',
+        }));
+      },
+    });
+  }
+
   protected deleteWish(id: number): void {
-    if (this.isSavingWish() || this.deletingWishIds().has(id)) {
+    if (this.isSavingWish() || this.isLoading()
+      || this.deletingWishIds().has(id) || this.updatingWishStatusIds().has(id)) {
       return;
     }
 
@@ -204,6 +269,7 @@ export class WishListPage {
     ).subscribe({
       next: () => {
         this.wishes.update((wishes) => wishes.filter((wish) => wish.id !== id));
+        this.clearStatusError(id);
       },
       error: () => {
         this.errorMessage.set('Could not delete wish');
@@ -212,13 +278,22 @@ export class WishListPage {
   }
 
   protected startEdit(wish: WishResponse): void {
-    if (this.isSavingWish() || this.deletingWishIds().has(wish.id)) {
+    if (this.isSavingWish() || this.isLoading()
+      || this.deletingWishIds().has(wish.id) || this.updatingWishStatusIds().has(wish.id)) {
       return;
     }
 
     this.errorMessage.set(null);
     this.createFieldErrors.set({});
     this.editingWish.set(wish);
+  }
+
+  private clearStatusError(id: number): void {
+    this.statusErrors.update((errors) => {
+      const nextErrors = { ...errors };
+      delete nextErrors[id];
+      return nextErrors;
+    });
   }
 
   private addDeletingWishId(id: number): void {

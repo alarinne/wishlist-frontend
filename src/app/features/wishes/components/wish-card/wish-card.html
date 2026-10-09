@@ -1,4 +1,4 @@
-<article class="wish-card">
+<article class="wish-card" [attr.aria-busy]="isUpdatingStatus()">
   <h3>{{ wish().wishName }}</h3>
 
   <p>Category: {{ wish().categoryName }}</p>
@@ -12,11 +12,28 @@
     </a>
   }
 
-  <button type="button" [disabled]="actionsDisabled() || isDeleting()" (click)="requestDelete()">
+  <button type="button" [disabled]="areActionsDisabled()" (click)="requestDelete()">
     {{ isDeleting() ? 'Deleting...' : 'Delete' }}
   </button>
 
-  <button type="button" [disabled]="actionsDisabled() || isDeleting()" (click)="requestEdit()">
+  <button type="button" [disabled]="areActionsDisabled()" (click)="requestEdit()">
     Edit
   </button>
+
+  <button
+    type="button"
+    data-action="update-status"
+    [disabled]="areActionsDisabled()"
+    (click)="requestStatusUpdate()"
+  >
+    @if (isUpdatingStatus()) {
+      Updating status...
+    } @else {
+      {{ wish().status === 'ACTIVE' ? 'Mark purchased' : 'Restore active' }}
+    }
+  </button>
+
+  @if (statusError()) {
+    <p class="status-error" role="alert">{{ statusError() }}</p>
+  }
 </article>

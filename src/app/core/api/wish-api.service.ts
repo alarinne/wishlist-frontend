@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
-import { WishRequest, WishResponse } from '../models/wish.model';
+import { WishRequest, WishResponse, WishStatusUpdateRequest } from '../models/wish.model';
 
 @Injectable({
   providedIn: 'root',
@@ -27,6 +27,10 @@ export class WishApiService {
 
   updateWish(id: number, request: WishRequest) {
     return this.http.put<WishResponse>(`${this.wishesUrl}/${id}`, request);
+  }
+
+  updateWishStatus(id: number, request: WishStatusUpdateRequest) {
+    return this.http.patch<WishResponse>(`${this.wishesUrl}/${id}/status`, request);
   }
 
   deleteWish(id: number) {
