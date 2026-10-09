@@ -11,14 +11,16 @@ import { WishRequest, WishResponse } from '../../../../core/models/wish.model';
 import { CategoryCreateForm } from '../../components/category-create-form/category-create-form';
 import { WishCard } from '../../components/wish-card/wish-card';
 import { WishCreateForm } from '../../components/wish-create-form/wish-create-form';
+import { WishListFilters } from '../../components/wish-list-filters/wish-list-filters';
 import { CategoryCreateFieldErrors } from '../../models/category-create-field-errors.model';
 import { WishCreateFieldErrors } from '../../models/wish-create-field-errors.model';
 import { WishFormMode } from '../../models/wish-form-mode.model';
 import { WishStatusChange } from '../../models/wish-status-change.model';
+import { WishStatusFilter } from '../../models/wish-status-filter.model';
 
 @Component({
   selector: 'app-wish-list-page',
-  imports: [WishCard, WishCreateForm, CategoryCreateForm],
+  imports: [WishCard, WishCreateForm, CategoryCreateForm, WishListFilters],
   templateUrl: './wish-list-page.html',
   styleUrl: './wish-list-page.scss',
 })
@@ -29,6 +31,17 @@ export class WishListPage {
 
   protected readonly wishes = signal<WishResponse[]>([]);
   protected readonly categories = signal<CategoryResponse[]>([]);
+  protected readonly selectedStatus = signal<WishStatusFilter>('ALL');
+  protected readonly selectedCategoryId = signal<number | null>(null);
+  protected readonly filteredWishes = computed(() => {
+    const status = this.selectedStatus();
+    const categoryId = this.selectedCategoryId();
+
+    return this.wishes().filter((wish) =>
+      (status === 'ALL' || wish.status === status)
+      && (categoryId === null || wish.categoryId === categoryId),
+    );
+  });
   protected readonly isLoading = signal(false);
   protected readonly isLoadingCategories = signal(false);
   protected readonly isSavingWish = signal(false);
@@ -51,6 +64,11 @@ export class WishListPage {
   ngOnInit(): void {
     this.loadWishes();
     this.loadCategories();
+  }
+
+  protected resetFilters(): void {
+    this.selectedStatus.set('ALL');
+    this.selectedCategoryId.set(null);
   }
 
   protected loadWishes(): void {

@@ -1,0 +1,35 @@
+<div class="wish-list-filters" aria-label="Wish filters">
+  <fieldset class="status-filter">
+    <legend>Status</legend>
+    <div class="status-options">
+      @for (option of statusOptions; track option.value) {
+        <label class="status-option">
+          <input
+            type="radio"
+            name="wish-status-filter"
+            [value]="option.value"
+            [checked]="status() === option.value"
+            (change)="statusChange.emit(option.value)"
+          />
+          <span>{{ option.label }}</span>
+        </label>
+      }
+    </div>
+  </fieldset>
+
+  <div class="category-filter">
+    <label for="wish-category-filter">Category</label>
+    <select
+      id="wish-category-filter"
+      [ngModel]="categoryId()"
+      (ngModelChange)="categoryChange.emit($event)"
+    >
+      <option [ngValue]="null">All categories</option>
+      @for (category of categories(); track category.id) {
+        <option [ngValue]="category.id">{{ category.label }}</option>
+      }
+    </select>
+  </div>
+
+  <button type="button" [disabled]="!hasFilters()" (click)="resetFilters.emit()">Reset filters</button>
+</div>

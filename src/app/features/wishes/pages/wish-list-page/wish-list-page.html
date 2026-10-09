@@ -42,13 +42,24 @@
     <p>{{ errorMessage() }}</p>
   }
 
+  <app-wish-list-filters
+    [categories]="categories()"
+    [status]="selectedStatus()"
+    [categoryId]="selectedCategoryId()"
+    (statusChange)="selectedStatus.set($event)"
+    (categoryChange)="selectedCategoryId.set($event)"
+    (resetFilters)="resetFilters()"
+  />
+
   @if (isLoading()) {
     <p>Loading wishes...</p>
   } @else if (wishes().length === 0) {
     <p>No wishes yet.</p>
+  } @else if (filteredWishes().length === 0) {
+    <p role="status">No wishes match these filters.</p>
   } @else {
     <div>
-      @for (wish of wishes(); track wish.id) {
+      @for (wish of filteredWishes(); track wish.id) {
         <app-wish-card
           [wish]="wish"
           [actionsDisabled]="isSavingWish() || isLoading()"
