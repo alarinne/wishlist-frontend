@@ -83,4 +83,53 @@ describe('WishListFilters', () => {
     expect(element.querySelectorAll('option')[1].textContent).toBe(label);
     expect(element.querySelector('img')).toBeNull();
   });
+
+  it('should display an accessible empty search field by default', () => {
+    const search = element.querySelector<HTMLInputElement>('#wish-name-search')!;
+    expect(search.type).toBe('search');
+    expect(search.value).toBe('');
+    expect(element.querySelector('label[for="wish-name-search"]')!.textContent).toBe('Search wishes');
+    expect(component.searchQuery()).toBe('');
+  });
+
+  it('should reflect raw parent search text without trimming or changing case', async () => {
+    fixture.componentRef.setInput('searchQuery', '  KiNdLe  ');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(element.querySelector<HTMLInputElement>('#wish-name-search')!.value).toBe('  KiNdLe  ');
+  });
+
+  it('should emit typed raw search text and clear events without mutating the input', () => {
+    const emit = vi.fn();
+    component.searchQueryChange.subscribe(emit);
+    const search = element.querySelector<HTMLInputElement>('#wish-name-search')!;
+    search.value = '  KiNdLe  ';
+    search.dispatchEvent(new Event('input'));
+    expect(emit).toHaveBeenLastCalledWith('  KiNdLe  ');
+    expect(component.searchQuery()).toBe('');
+    search.value = '';
+    search.dispatchEvent(new Event('input'));
+    expect(emit).toHaveBeenLastCalledWith('');
+  });
+
+  it.each(['Kindle', '   '])('should enable reset for a search-only value %j and leave clearing to the parent', (query) => {
+    fixture.componentRef.setInput('searchQuery', query);
+    fixture.detectChanges();
+    const emit = vi.fn();
+    component.resetFilters.subscribe(emit);
+    const reset = element.querySelector<HTMLButtonElement>('button')!;
+    expect(reset.disabled).toBe(false);
+    reset.click();
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(component.searchQuery()).toBe(query);
+  });
+
+  it('should bind HTML-like search text as an input value rather than markup', async () => {
+    const query = '<img src=x onerror=alert(1)>';
+    fixture.componentRef.setInput('searchQuery', query);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(element.querySelector<HTMLInputElement>('#wish-name-search')!.value).toBe(query);
+    expect(element.querySelector('img')).toBeNull();
+  });
 });

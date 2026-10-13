@@ -1,4 +1,15 @@
 <div class="wish-list-filters" aria-label="Wish filters">
+  <div class="search-filter">
+    <label for="wish-name-search">Search wishes</label>
+    <input
+      id="wish-name-search"
+      type="search"
+      autocomplete="off"
+      [ngModel]="searchQuery()"
+      (ngModelChange)="searchQueryChange.emit($event)"
+    />
+  </div>
+
   <fieldset class="status-filter">
     <legend>Status</legend>
     <div class="status-options">
