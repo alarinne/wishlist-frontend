@@ -33,13 +33,16 @@ export class WishListPage {
   protected readonly categories = signal<CategoryResponse[]>([]);
   protected readonly selectedStatus = signal<WishStatusFilter>('ALL');
   protected readonly selectedCategoryId = signal<number | null>(null);
+  protected readonly searchQuery = signal('');
   protected readonly filteredWishes = computed(() => {
     const status = this.selectedStatus();
     const categoryId = this.selectedCategoryId();
+    const query = this.searchQuery().trim().toLowerCase();
 
     return this.wishes().filter((wish) =>
       (status === 'ALL' || wish.status === status)
-      && (categoryId === null || wish.categoryId === categoryId),
+      && (categoryId === null || wish.categoryId === categoryId)
+      && wish.wishName.toLowerCase().includes(query),
     );
   });
   protected readonly isLoading = signal(false);
@@ -69,6 +72,7 @@ export class WishListPage {
   protected resetFilters(): void {
     this.selectedStatus.set('ALL');
     this.selectedCategoryId.set(null);
+    this.searchQuery.set('');
   }
 
   protected loadWishes(): void {

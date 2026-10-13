@@ -46,8 +46,10 @@
     [categories]="categories()"
     [status]="selectedStatus()"
     [categoryId]="selectedCategoryId()"
+    [searchQuery]="searchQuery()"
     (statusChange)="selectedStatus.set($event)"
     (categoryChange)="selectedCategoryId.set($event)"
+    (searchQueryChange)="searchQuery.set($event)"
     (resetFilters)="resetFilters()"
   />
 

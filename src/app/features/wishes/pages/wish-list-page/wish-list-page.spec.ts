@@ -913,6 +913,218 @@ describe('WishListPage', () => {
       expect(form.actionsDisabled()).toBe(false);
     });
 
+    describe('name search', () => {
+      function search(query: string): void {
+        filters().searchQueryChange.emit(query);
+        fixture.detectChanges();
+      }
+
+      it.each([
+        ['kIn', [1]], ['OO', [2]], ['pUZZ', [4]], ['  cHE  ', [3]],
+        ['', [1, 2, 3, 4]], ['  \t\n ', [1, 2, 3, 4]],
+      ] as const)('should match names for query %j without changing source records or fetching', (query, ids) => {
+        fixture.detectChanges();
+        search(query);
+        expect(visibleIds()).toEqual(ids);
+        expect(filters().searchQuery()).toBe(query);
+        search('');
+        expect(cards().map((card) => card.wish())).toEqual(source);
+        expect(cards().map((card) => card.wish().id)).toEqual([1, 2, 3, 4]);
+        expect(cards()[0].wish()).toBe(wish);
+        expect(wishApiService.getWishes).toHaveBeenCalledTimes(1);
+        expect(categoryApiService.getCategories).toHaveBeenCalledTimes(1);
+      });
+
+      it('should match Cyrillic names case-insensitively', () => {
+        wishApiService.getWishes.mockReturnValue(of([
+          { ...wish, wishName: '\u041a\u043d\u0438\u0433\u0430' }, purchasedBook,
+        ]));
+        fixture.detectChanges();
+        search('  \u043a\u041d\u0438  ');
+        expect(visibleIds()).toEqual([1]);
+      });
+
+      it.each([
+        ['[v2]', [2]], ['.*', [2]], ['[', [2]], ['(missing', []],
+      ] as const)('should treat query %j as literal text rather than a regular expression', (query, ids) => {
+        wishApiService.getWishes.mockReturnValue(of([
+          wish, { ...purchasedBook, wishName: 'Notebook [v2].*' },
+        ]));
+        fixture.detectChanges();
+        search(query);
+        expect(visibleIds()).toEqual(ids);
+      });
+
+      it('should retain internal query whitespace and search only names, not categories or URLs', () => {
+        const singleSpace = { ...wish, wishName: 'Board Game', categoryName: 'Books', url: 'https://example.test/marker' };
+        const doubleSpace = { ...purchasedBook, wishName: 'Board  Game' };
+        wishApiService.getWishes.mockReturnValue(of([singleSpace, doubleSpace]));
+        fixture.detectChanges();
+        search('board  game');
+        expect(visibleIds()).toEqual([2]);
+        search('Books');
+        expect(visibleIds()).toEqual([]);
+        search('marker');
+        expect(visibleIds()).toEqual([]);
+      });
+
+      it('should combine search with status/category and reset all selections', async () => {
+        fixture.detectChanges();
+        search('le');
+        expect(visibleIds()).toEqual([1, 4]);
+        filters().statusChange.emit('PURCHASED');
+        filters().categoryChange.emit(1);
+        fixture.detectChanges();
+        expect(visibleIds()).toEqual([]);
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('No wishes match these filters.');
+        filters().categoryChange.emit(2);
+        fixture.detectChanges();
+        expect(visibleIds()).toEqual([4]);
+        fixture.debugElement.query(By.css('app-wish-list-filters button')).triggerEventHandler('click');
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(visibleIds()).toEqual([1, 2, 3, 4]);
+        expect(filters().searchQuery()).toBe('');
+        expect(filters().status()).toBe('ALL');
+        expect(filters().categoryId()).toBeNull();
+        expect((fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#wish-name-search')!.value).toBe('');
+        expect(wishApiService.getWishes).toHaveBeenCalledTimes(1);
+      });
+
+      it('should keep the other filters when search text is cleared', () => {
+        fixture.detectChanges();
+        filters().statusChange.emit('ACTIVE');
+        filters().categoryChange.emit(2);
+        search('puzzle');
+        expect(visibleIds()).toEqual([]);
+        search('');
+        expect(visibleIds()).toEqual([3]);
+        expect(filters().status()).toBe('ACTIVE');
+        expect(filters().categoryId()).toBe(2);
+      });
+
+      it('should preserve whitespace input until Reset filters clears it', async () => {
+        fixture.detectChanges();
+        search('   ');
+        await fixture.whenStable();
+        const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#wish-name-search')!;
+        const reset = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('app-wish-list-filters button')!;
+        expect(input.value).toBe('   ');
+        expect(reset.disabled).toBe(false);
+        expect(visibleIds()).toEqual([1, 2, 3, 4]);
+        reset.click();
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(input.value).toBe('');
+        expect(reset.disabled).toBe(true);
+      });
+
+      it('should show the source-empty state even with a nonempty search query', () => {
+        wishApiService.getWishes.mockReturnValue(of([]));
+        fixture.detectChanges();
+        search('Kindle');
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('No wishes yet.');
+        expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('No wishes match these filters.');
+      });
+
+      it('should retain query and filters during Refresh and match new source names', () => {
+        fixture.detectChanges();
+        filters().statusChange.emit('ACTIVE');
+        filters().categoryChange.emit(1);
+        search('  KINDLE  ');
+        wishApiService.getWishes.mockReturnValue(of([{ ...wish, wishName: 'Kobo' }, activeGame]));
+        fixture.debugElement.query(By.css('header button')).triggerEventHandler('click');
+        fixture.detectChanges();
+        expect(visibleIds()).toEqual([]);
+        expect(filters().searchQuery()).toBe('  KINDLE  ');
+        expect(filters().status()).toBe('ACTIVE');
+        expect(filters().categoryId()).toBe(1);
+        expect(wishApiService.getWishes).toHaveBeenCalledTimes(2);
+      });
+
+      it.each(['Kindle renamed', 'Kobo'])('should recompute matching after a server-confirmed name change to %s', (name) => {
+        const saving$ = new Subject<WishResponse>();
+        wishApiService.updateWish.mockReturnValue(saving$);
+        fixture.detectChanges();
+        cards()[0].editWish.emit(wish);
+        search('kindle');
+        const request: WishRequest = { wishName: name, wishPrice: 120, url: null, categoryId: 1, priority: 'HIGH' };
+        const form = fixture.debugElement.query(By.directive(WishCreateForm)).componentInstance as WishCreateForm;
+        form.submitWish.emit(request);
+        fixture.detectChanges();
+        expect(visibleIds()).toEqual([1]);
+        const updated = { ...wish, wishName: name };
+        saving$.next(updated);
+        saving$.complete();
+        fixture.detectChanges();
+        expect(visibleIds()).toEqual(name === 'Kobo' ? [] : [1]);
+        search('kobo');
+        expect(visibleIds()).toEqual(name === 'Kobo' ? [1] : []);
+        expect(wishApiService.updateWish).toHaveBeenCalledWith(1, request);
+        expect(wishApiService.getWishes).toHaveBeenCalledTimes(1);
+      });
+
+      it.each(['success', 'failure'])('should preserve hidden status/draft state after %s and allow retry', async (outcome) => {
+        const status$ = new Subject<WishResponse>();
+        wishApiService.updateWishStatus.mockReturnValue(status$);
+        fixture.detectChanges();
+        cards()[0].editWish.emit(wish);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const name = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#wishName')!;
+        name.value = 'Unsaved search draft';
+        name.dispatchEvent(new Event('input'));
+        await fixture.whenStable();
+        cards()[0].updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+        search('chess');
+        expect(visibleIds()).toEqual([3]);
+        expect(status$.observed).toBe(true);
+        const form = fixture.debugElement.query(By.directive(WishCreateForm)).componentInstance as WishCreateForm;
+        expect(form.actionsDisabled()).toBe(true);
+        search('kindle');
+        expect(cards()[0].isUpdatingStatus()).toBe(true);
+        search('chess');
+        if (outcome === 'success') {
+          status$.next({ ...wish, status: 'PURCHASED' });
+          status$.complete();
+        } else {
+          status$.error(new Error('Failed'));
+        }
+        fixture.detectChanges();
+        expect(visibleIds()).toEqual([3]);
+        search('kindle');
+        await fixture.whenStable();
+        expect(name.value).toBe('Unsaved search draft');
+        expect(form.initialWish()).toBe(wish);
+        expect(form.mode()).toBe('edit');
+        expect(form.actionsDisabled()).toBe(false);
+        expect(cards()[0].isUpdatingStatus()).toBe(false);
+        expect(cards()[0].wish().status).toBe(outcome === 'success' ? 'PURCHASED' : 'ACTIVE');
+        expect(cards()[0].statusError()).toBe(outcome === 'failure' ? 'Could not update wish status' : null);
+        if (outcome === 'failure') {
+          wishApiService.updateWishStatus.mockReturnValue(of({ ...wish, status: 'PURCHASED' }));
+          cards()[0].updateWishStatus.emit({ id: 1, status: 'PURCHASED' });
+          fixture.detectChanges();
+          expect(cards()[0].statusError()).toBeNull();
+          expect(cards()[0].wish().status).toBe('PURCHASED');
+        }
+        expect(wishApiService.getWishes).toHaveBeenCalledTimes(1);
+      });
+
+      it('should keep a search-hidden deletion subscribed and remove the source record on success', () => {
+        const deletion$ = new Subject<void>();
+        wishApiService.deleteWish.mockReturnValue(deletion$);
+        fixture.detectChanges();
+        cards()[0].deleteWish.emit(1);
+        search('chess');
+        expect(deletion$.observed).toBe(true);
+        deletion$.next();
+        deletion$.complete();
+        search('');
+        expect(visibleIds()).toEqual([2, 3, 4]);
+      });
+    });
+
     it('should save an edit by its ID even if the filters hide it', () => {
       fixture.detectChanges();
       cards()[0].editWish.emit(wish);
