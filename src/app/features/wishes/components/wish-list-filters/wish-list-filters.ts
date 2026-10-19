@@ -15,8 +15,10 @@ export class WishListFilters {
   readonly categories = input.required<ReadonlyArray<CategoryResponse>>();
   readonly status = input<WishStatusFilter>('ALL');
   readonly categoryId = input<number | null>(null);
+  readonly searchQuery = input('');
   readonly statusChange = output<WishStatusFilter>();
   readonly categoryChange = output<number | null>();
+  readonly searchQueryChange = output<string>();
   readonly resetFilters = output<void>();
 
   protected readonly statusOptions: ReadonlyArray<{ value: WishStatusFilter; label: string }> = [
@@ -24,5 +26,7 @@ export class WishListFilters {
     { value: 'ACTIVE', label: 'Active' },
     { value: 'PURCHASED', label: 'Purchased' },
   ];
-  protected readonly hasFilters = computed(() => this.status() !== 'ALL' || this.categoryId() !== null);
+  protected readonly hasFilters = computed(() =>
+    this.status() !== 'ALL' || this.categoryId() !== null || this.searchQuery().length > 0,
+  );
 }
